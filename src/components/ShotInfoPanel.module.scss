@@ -1,0 +1,54 @@
+.shotInfoPanel {
+  position: absolute;
+  top: 3rem; /* top-12 */
+  right: 0.75rem; /* right-3 */
+  z-index: 30;
+  background: rgba(255,255,255,0.95);
+  padding: 1rem; /* p-4 */
+  border-radius: 0.5rem; /* rounded-lg */
+  min-width: 250px;
+  color: #1a202c; /* text-gray-900 */
+  font-size: 1rem; /* text-base */
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); /* shadow-lg */
+  border: 1px solid #d1d5db; /* border-gray-300 */
+}
+.closeBtn {
+  float: right;
+  margin-left: 0.5rem;
+  background: #e5e7eb; /* bg-gray-200 */
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  cursor: pointer;
+  color: #374151; /* text-gray-700 */
+}
+.closeBtn:hover {
+  background: #d1d5db; /* hover:bg-gray-300 */
+}
+.header {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 1.125rem; /* text-lg */
+  color: #1f2937; /* text-gray-800 */
+}
+.label {
+  font-weight: bold;
+  color: #374151; /* text-gray-700 */
+}
+.value {
+  color: #1a202c; /* text-gray-900 */
+}
+
+.infoTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 230px;
+  padding: 0.05rem 0;
+}
