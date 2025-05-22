@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ShotInfoPanel from './ShotInfoPanel'; // Used in sidebar panel
+import { drawPlayerHandle, getPlayerArmTheta } from './PlayerHandle';
 
 // Tennis court dimensions (in meters)
 const COURT_LENGTH = 23.77;
@@ -172,124 +173,6 @@ const TennisCourt: React.FC = () => {
       setBgLoaded(v => v + 1); // Force redraw
     };
   }, [courtType, courtOrientation]);
-
-  // Draw a draggable player handle
-  function drawPlayerHandle(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    color: string,
-    handedness: 'left' | 'right' = 'right',
-    scale: number = 1,
-    swing: 'forehand'|'backhand',
-    isPlayer1: boolean = false,
-    orientation: CourtOrientation = 'portrait'
-  ) {
-    // Only draw based on the passed swing value
-    let rel: number = 0;
-    if (orientation === 'landscape') {
-      // In landscape, canvas y (vertical axis) maps to sideline-to-sideline (logical.x)
-      // Use canvas coordinates for rel calculation
-      // const courtToPx = courtToPxRef && courtToPxRef.current ? courtToPxRef.current : undefined;
-      // if (courtToPx) {
-      //   const leftPx = courtToPx({ x: leftSinglesX, y: 0 }).y;
-      //   const rightPx = courtToPx({ x: rightSinglesX, y: 0 }).y;
-      //   rel = (y - leftPx) / (rightPx - leftPx);
-      // } else {
-        rel = (y - 99) / (273 - 99);
-      // }
-      // Clamp rel for safety
-      console.log("[drawPlayerHandle] y", y);
-      rel = Math.max(0, Math.min(1, rel));
-      console.log("[drawPlayerHandle] rel", rel);
-      const inBottomTwoThirds = rel >= (1/3);
-      console.log("[drawPlayerHandle] isPlayer1", isPlayer1);
-      // if (isPlayer1) {
-      //   console.log(`[DEBUG] Landscape: canvas x=${x.toFixed(1)}, leftPx=${leftPx.toFixed(1)}, rightPx=${rightPx.toFixed(1)}, rel=${rel.toFixed(3)}, inBottomTwoThirds=${inBottomTwoThirds}`);
-      // }
-    } else {
-      // Portrait mode: existing logic
-      rel = (x - 0.914) / (8.229 - 0.914);
-    }
-    let theta: number;
-    let endX: number;
-    let endY: number;
-    let contactX: number;
-    let contactY: number;
-    // Only declare armPx and contactPx ONCE here (do not redeclare elsewhere)
-    const armPx = ARM_RACKET_LENGTH * scale;
-    const contactPx = armPx * CONTACT_POINT_RATIO;
-    if (orientation === 'landscape') {
-      // Player faces right (+X):
-      //   Right-handed: forehand = +60° (PI/3), backhand = -60° (-PI/3)
-      //   Left-handed:  forehand = -60° (-PI/3), backhand = +60° (PI/3)
-      if (handedness === 'right') {
-        theta = swing === 'forehand'
-          ? Math.PI / 3        // 60°
-          : -Math.PI / 3;      // -60° (or 300°)
-      } else {
-        theta = swing === 'forehand'
-          ? -Math.PI / 3       // -60°
-          : Math.PI / 3;       // +60°
-      }
-    } else {
-      if (handedness === 'right') {
-        theta = swing === 'backhand' ? (Math.PI/6) : (5*Math.PI/6);
-      } else {
-        theta = swing === 'backhand' ? (5*Math.PI/6) : (Math.PI/6);
-      }
-    }
-    endX = x + armPx * Math.cos(theta);
-    endY = y + armPx * Math.sin(theta);
-    contactX = x + contactPx * Math.cos(theta);
-    contactY = y + contactPx * Math.sin(theta);
-    if (isPlayer1) {
-      const thetaDeg = (theta * 180 / Math.PI).toFixed(2);
-      const thetaRel = ((theta - Math.PI) * 180 / Math.PI).toFixed(2);
-      console.log('[drawPlayerHandle] orientation:', orientation, 'handedness:', handedness, 'swing:', swing, 'theta (rad):', theta.toFixed(3), 'theta (deg from +x axis):', thetaDeg, 'theta (deg from -x/player):', thetaRel, 'start:', {x, y}, 'end:', {endX, endY});
-    }
-    ctx.save();
-    // Determine swing color
-    let swingColor = '#000';
-    if (swing === 'forehand') swingColor = '#1e90ff'; // blue for forehand
-    else if (swing === 'backhand') swingColor = '#f39c12'; // orange for backhand
-    ctx.strokeStyle = swingColor;
-    ctx.lineWidth = 5;
-    // Draw arm+racquet line
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    // Draw contact point as a small filled circle
-    ctx.beginPath();
-    ctx.arc(contactX, contactY, 6, 0, 2 * Math.PI);
-    ctx.fillStyle = swingColor;
-    ctx.globalAlpha = 0.7;
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-    // Debug: draw a red circle at the arm extension/contact point for Player 1
-    if (isPlayer1) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(contactX, contactY, 8, 0, 2 * Math.PI);
-      ctx.fillStyle = 'red';
-      ctx.globalAlpha = 0.5;
-      ctx.fill();
-      ctx.restore();
-    }
-    ctx.restore();
-    // Draw handle on top
-    ctx.beginPath();
-    ctx.arc(x, y, 14, 0, 2 * Math.PI);
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.3;
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-    ctx.beginPath();
-    ctx.arc(x, y, 10, 0, 2 * Math.PI);
-    ctx.fillStyle = color;
-    ctx.fill();
-  }
 
   // Draw a shot endpoint handle (circle only)
   function drawShotHandle(ctx: CanvasRenderingContext2D, x: number, y: number, color: string) {
@@ -798,18 +681,11 @@ function resolvePlayer1Swing(
     } else {
       swing = player1Swing;
     }
-    let theta: number;
-    let baseAngle: number;
-    if (courtOrientation === 'landscape') {
-      baseAngle = Math.PI;
-    } else {
-      baseAngle = -Math.PI / 2;
-    }
-    if (swing === 'forehand') {
-      theta = baseAngle + Math.PI / 3;
-    } else {
-      theta = baseAngle - Math.PI / 3;
-    }
+    const theta = getPlayerArmTheta({
+  orientation: courtOrientation,
+  handedness: player1Handedness,
+  swing
+});
     const armPx = ARM_RACKET_LENGTH;
     let player1ArmExt: { x: number; y: number };
     let player1ArmExtPxForOverlay: { x: number; y: number };
@@ -867,8 +743,28 @@ function resolvePlayer1Swing(
       console.log('[DRAW] player1Px', player1Px, 'player1', player1);
     }
     console.log('[drawCourtAndPlayers] player1Swing:', swing, 'orientation:', courtOrientation);
-    drawPlayerHandle(ctx, player1Px.x, player1Px.y, 'blue', player1Handedness, pxPerMeter, swing, true, courtOrientation);
-    drawPlayerHandle(ctx, player2Px.x, player2Px.y, 'purple', 'right', pxPerMeter, 'forehand', false, courtOrientation);
+    drawPlayerHandle({
+  ctx,
+  x: player1Px.x,
+  y: player1Px.y,
+  color: 'blue',
+  handedness: player1Handedness,
+  scale: pxPerMeter,
+  swing,
+  isPlayer1: true,
+  orientation: courtOrientation
+});
+    drawPlayerHandle({
+  ctx,
+  x: player2Px.x,
+  y: player2Px.y,
+  color: 'purple',
+  handedness: 'right',
+  scale: pxPerMeter,
+  swing: 'forehand',
+  isPlayer1: false,
+  orientation: courtOrientation
+});
     if (showAngles) {
       drawShotHandle(ctx, shot1Px.x, shot1Px.y, 'red');
       drawShotHandle(ctx, shot2Px.x, shot2Px.y, 'red');
