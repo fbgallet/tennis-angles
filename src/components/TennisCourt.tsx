@@ -326,21 +326,23 @@ const TennisCourt: React.FC = () => {
     const lateral = clamp(
       Math.abs(contact.x - singlesCenterX) / (COURT_WIDTH / 2),
       0,
-      1
+      1.2
     );
-
+    console.log("lateral :>> ", lateral);
     const downLineY =
       COURT_LENGTH -
       (forwardNet < 1
-        ? (1 - lateral) * (COURT_LENGTH - serviceLineY) * (1 - forwardNet)
+        ? (1 - Math.min(lateral, 1)) *
+          (COURT_LENGTH - serviceLineY) *
+          (1 - forwardNet)
         : 0);
     const downLine = { x: downLineX, y: downLineY };
     // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
     const crossX = contact.x < singlesCenterX ? rightSinglesX : leftSinglesX;
-    const crossY =
-      COURT_LENGTH -
-      lateral * (COURT_LENGTH - serviceLineY) -
-      (forwardNet < 1 ? (1 - forwardNet) * 5 : 0);
+    const crossY = Math.max(
+      COURT_LENGTH - lateral * 7 - (forwardNet < 1 ? (1 - forwardNet) * 5 : 0),
+      NET_Y + 1
+    );
     const cross = { x: crossX, y: crossY };
     setShot1(downLine);
     setShot2(cross);
