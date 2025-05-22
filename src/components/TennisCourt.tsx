@@ -19,28 +19,47 @@ function getScale(width: number, height: number, BG_SIZE: { width: number; lengt
 const leftSinglesX = 0.914;
 const rightSinglesX = 8.229;
 const singlesCenterX = (leftSinglesX + rightSinglesX) / 2;
+const topY = 0;
+const botY = COURT_LENGTH;
+
 
 // Default position for Player 1 (top side, center)
 // These helpers must use BG_SIZE for landscape, not COURT_WIDTH
-function getDefaultPlayer1(orientation: CourtOrientation, BG_SIZE = { width: 13.0, length: 28.0 }) {
-  return orientation === 'portrait'
-    ? { x: singlesCenterX, y: 0 }
-    : { x: 0, y: singlesCenterX };
+function getDefaultPlayer1(orientation: CourtOrientation) {
+  if (orientation === 'portrait') {
+    // Top center of court
+    return { x: singlesCenterX, y: 0 };
+  } else {
+    // Landscape: center sideline, left baseline
+    return { x: singlesCenterX, y: 0 };
+  }
 }
-function getDefaultPlayer2(orientation: CourtOrientation, BG_SIZE = { width: 13.0, length: 28.0 }) {
-  return orientation === 'portrait'
-    ? { x: COURT_WIDTH / 2, y: COURT_LENGTH }
-    : { x: BG_SIZE.length, y: singlesCenterX };
+function getDefaultPlayer2(orientation: CourtOrientation) {
+  if (orientation === 'portrait') {
+    // Bottom center of court
+    return { x: singlesCenterX, y: COURT_LENGTH };
+  } else {
+    // Landscape: center sideline, right baseline
+    return { x: singlesCenterX, y: COURT_LENGTH };
+  }
 }
-function getDefaultShot1(orientation: CourtOrientation, BG_SIZE = { width: 13.0, length: 28.0 }) {
-  return orientation === 'portrait'
-    ? { x: leftSinglesX, y: COURT_LENGTH }
-    : { x: BG_SIZE.length, y: leftSinglesX };
+function getDefaultShot1(orientation: CourtOrientation) {
+  if (orientation === 'portrait') {
+    // Left singles sideline, bottom (opponent side)
+    return { x: leftSinglesX, y: COURT_LENGTH };
+  } else {
+    // Landscape: left sideline, opponent's baseline, vertical center
+    return { x: leftSinglesX, y: botY };
+  }
 }
-function getDefaultShot2(orientation: CourtOrientation, BG_SIZE = { width: 13.0, length: 28.0 }) {
-  return orientation === 'portrait'
-    ? { x: rightSinglesX, y: COURT_LENGTH }
-    : { x: BG_SIZE.length, y: rightSinglesX };
+function getDefaultShot2(orientation: CourtOrientation) {
+  if (orientation === 'portrait') {
+    // Right singles sideline, bottom (opponent side)
+    return { x: rightSinglesX, y: COURT_LENGTH };
+  } else {
+    // Landscape: right sideline, opponent's baseline, vertical center
+    return { x: rightSinglesX, y: botY };
+  }
 }
 
 function clamp(val: number, min: number, max: number) {
@@ -93,10 +112,20 @@ const TennisCourt: React.FC = () => {
   const [shot1, setShot1] = useState(() => getDefaultShot1('portrait'));
   const [shot2, setShot2] = useState(() => getDefaultShot2('portrait'));
   const [hasMovedPlayer1, setHasMovedPlayer1] = useState(false);
+  const [courtOrientation, setCourtOrientation] = useState<CourtOrientation>('portrait');
+
+  // Ensure player/shot positions are reset to correct side when orientation changes (unless user has dragged)
+  useEffect(() => {
+    if (!hasMovedPlayer1) {
+      setPlayer1(getDefaultPlayer1(courtOrientation));
+      setPlayer2(getDefaultPlayer2(courtOrientation));
+      setShot1(getDefaultShot1(courtOrientation));
+      setShot2(getDefaultShot2(courtOrientation));
+    }
+  }, [courtOrientation, hasMovedPlayer1]);
   const [player1Handedness, setPlayer1Handedness] = useState<'right' | 'left'>('right');
   const [player1Swing, setPlayer1Swing] = useState<'auto'|'forehand'|'backhand'>('auto');
   const [dragging, setDragging] = useState<DragTarget>(null);
-  const [courtOrientation, setCourtOrientation] = useState<CourtOrientation>('portrait');
 
   // --- Refs (if needed) ---
   // Only declare refs for canvas or container if actually used in hooks/effects
@@ -108,14 +137,16 @@ const TennisCourt: React.FC = () => {
   // --- Coordinate mapping helpers ---
   // Fix: correct coordinate swap/mirror for landscape
   function logicalToDisplay({ x, y }: { x: number; y: number }) {
-    if (courtOrientation === 'portrait') return { x, y };
-    // landscape: swap x/y, mirror new x axis (which is length)
-    return { x: y, y: BG_SIZE.length - x };
+    // Always identity: logical coordinates are always in portrait system
+    return { x, y };
   }
   function displayToLogical({ x, y }: { x: number; y: number }) {
-    if (courtOrientation === 'portrait') return { x, y };
-    // reverse swap/mirror
-    return { x: BG_SIZE.length - y, y: x };
+    if (courtOrientation === 'portrait') {
+      return { x, y };
+    } else {
+      // Inverse of above: (x, y) -> (COURT_WIDTH - y, x)
+      return { x: COURT_WIDTH - y, y: x };
+    }
   }
 
   // --- Remove global courtToPx and pxToCourt: these must only exist in the drawing effect with anchor scope ---
@@ -143,7 +174,111 @@ const TennisCourt: React.FC = () => {
   }, [courtType, courtOrientation]);
 
   // Draw a draggable player handle
-  function drawPlayerHandle(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, handedness: 'left' | 'right' = 'right', scale: number = 1, swing: 'auto'|'forehand'|'backhand' = 'auto') {
+  function drawPlayerHandle(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    color: string,
+    handedness: 'left' | 'right' = 'right',
+    scale: number = 1,
+    swing: 'forehand'|'backhand',
+    isPlayer1: boolean = false,
+    orientation: CourtOrientation = 'portrait'
+  ) {
+    // Only draw based on the passed swing value
+    let rel: number = 0;
+    if (orientation === 'landscape') {
+      // In landscape, canvas y (vertical axis) maps to sideline-to-sideline (logical.x)
+      // Use canvas coordinates for rel calculation
+      // const courtToPx = courtToPxRef && courtToPxRef.current ? courtToPxRef.current : undefined;
+      // if (courtToPx) {
+      //   const leftPx = courtToPx({ x: leftSinglesX, y: 0 }).y;
+      //   const rightPx = courtToPx({ x: rightSinglesX, y: 0 }).y;
+      //   rel = (y - leftPx) / (rightPx - leftPx);
+      // } else {
+        rel = (y - 99) / (273 - 99);
+      // }
+      // Clamp rel for safety
+      console.log("[drawPlayerHandle] y", y);
+      rel = Math.max(0, Math.min(1, rel));
+      console.log("[drawPlayerHandle] rel", rel);
+      const inBottomTwoThirds = rel >= (1/3);
+      console.log("[drawPlayerHandle] isPlayer1", isPlayer1);
+      // if (isPlayer1) {
+      //   console.log(`[DEBUG] Landscape: canvas x=${x.toFixed(1)}, leftPx=${leftPx.toFixed(1)}, rightPx=${rightPx.toFixed(1)}, rel=${rel.toFixed(3)}, inBottomTwoThirds=${inBottomTwoThirds}`);
+      // }
+    } else {
+      // Portrait mode: existing logic
+      rel = (x - 0.914) / (8.229 - 0.914);
+    }
+    let theta: number;
+    let endX: number;
+    let endY: number;
+    let contactX: number;
+    let contactY: number;
+    // Only declare armPx and contactPx ONCE here (do not redeclare elsewhere)
+    const armPx = ARM_RACKET_LENGTH * scale;
+    const contactPx = armPx * CONTACT_POINT_RATIO;
+    if (orientation === 'landscape') {
+      // Player faces right (+X):
+      //   Right-handed: forehand = +60° (PI/3), backhand = -60° (-PI/3)
+      //   Left-handed:  forehand = -60° (-PI/3), backhand = +60° (PI/3)
+      if (handedness === 'right') {
+        theta = swing === 'forehand'
+          ? Math.PI / 3        // 60°
+          : -Math.PI / 3;      // -60° (or 300°)
+      } else {
+        theta = swing === 'forehand'
+          ? -Math.PI / 3       // -60°
+          : Math.PI / 3;       // +60°
+      }
+    } else {
+      if (handedness === 'right') {
+        theta = swing === 'backhand' ? (Math.PI/6) : (5*Math.PI/6);
+      } else {
+        theta = swing === 'backhand' ? (5*Math.PI/6) : (Math.PI/6);
+      }
+    }
+    endX = x + armPx * Math.cos(theta);
+    endY = y + armPx * Math.sin(theta);
+    contactX = x + contactPx * Math.cos(theta);
+    contactY = y + contactPx * Math.sin(theta);
+    if (isPlayer1) {
+      const thetaDeg = (theta * 180 / Math.PI).toFixed(2);
+      const thetaRel = ((theta - Math.PI) * 180 / Math.PI).toFixed(2);
+      console.log('[drawPlayerHandle] orientation:', orientation, 'handedness:', handedness, 'swing:', swing, 'theta (rad):', theta.toFixed(3), 'theta (deg from +x axis):', thetaDeg, 'theta (deg from -x/player):', thetaRel, 'start:', {x, y}, 'end:', {endX, endY});
+    }
+    ctx.save();
+    // Determine swing color
+    let swingColor = '#000';
+    if (swing === 'forehand') swingColor = '#1e90ff'; // blue for forehand
+    else if (swing === 'backhand') swingColor = '#f39c12'; // orange for backhand
+    ctx.strokeStyle = swingColor;
+    ctx.lineWidth = 5;
+    // Draw arm+racquet line
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    // Draw contact point as a small filled circle
+    ctx.beginPath();
+    ctx.arc(contactX, contactY, 6, 0, 2 * Math.PI);
+    ctx.fillStyle = swingColor;
+    ctx.globalAlpha = 0.7;
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    // Debug: draw a red circle at the arm extension/contact point for Player 1
+    if (isPlayer1) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(contactX, contactY, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = 'red';
+      ctx.globalAlpha = 0.5;
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+    // Draw handle on top
     ctx.beginPath();
     ctx.arc(x, y, 14, 0, 2 * Math.PI);
     ctx.fillStyle = color;
@@ -154,36 +289,6 @@ const TennisCourt: React.FC = () => {
     ctx.arc(x, y, 10, 0, 2 * Math.PI);
     ctx.fillStyle = color;
     ctx.fill();
-    // Draw arm+racquet line (45 deg front)
-    ctx.save();
-    // Determine swing color
-    let swingColor = '#000';
-    if (swing === 'forehand') swingColor = '#1e90ff'; // blue for forced forehand
-    else if (swing === 'backhand') swingColor = '#f39c12'; // orange for forced backhand
-    ctx.strokeStyle = swingColor;
-    ctx.lineWidth = 4;
-    // Angle logic
-    let theta: number;
-    if (handedness === 'right') {
-      // backhand=+30°, forehand=+150°
-      theta = swing === 'backhand' ? (Math.PI/6) : (5*Math.PI/6);
-    } else {
-      // backhand=+150°, forehand=+30°
-      theta = swing === 'backhand' ? (5*Math.PI/6) : (Math.PI/6);
-    }
-    const armPx = ARM_RACKET_LENGTH * scale;
-    // Contact point slightly inside the tip
-    const contactPx = armPx * CONTACT_POINT_RATIO;
-    const endX = x + armPx * Math.cos(theta);
-    const endY = y + armPx * Math.sin(theta);
-    const contactX = x + contactPx * Math.cos(theta);
-    const contactY = y + contactPx * Math.sin(theta);
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    // Draw contact point as a small filled circle
-    ctx.restore();
   }
 
   // Draw a shot endpoint handle (circle only)
@@ -413,32 +518,86 @@ const TennisCourt: React.FC = () => {
     let offsetY = 0;
     const scaleX = drawWidth / BG_ORIG_WIDTH;
     const scaleY = drawHeight / BG_ORIG_HEIGHT;
-    const pxTopLeft = { x: offsetX + 134 * scaleX, y: offsetY + 161 * scaleY };
-    const pxTopRight = { x: offsetX + 367 * scaleX, y: offsetY + 161 * scaleY };
-    const pxBotLeft = { x: offsetX + 134 * scaleX, y: offsetY + 843 * scaleY };
-    const pxBotRight = { x: offsetX + 367 * scaleX, y: offsetY + 843 * scaleY };
+    let pxTopLeft: { x: number; y: number };
+    let pxTopRight: { x: number; y: number };
+    let pxBotLeft: { x: number; y: number };
+    let pxBotRight: { x: number; y: number };
+
+    if (courtOrientation === 'portrait') {
+      pxTopLeft = { x: offsetX + 134 * scaleX, y: offsetY + 161 * scaleY };
+      pxTopRight = { x: offsetX + 367 * scaleX, y: offsetY + 161 * scaleY };
+      pxBotLeft = { x: offsetX + 134 * scaleX, y: offsetY + 843 * scaleY };
+      pxBotRight = { x: offsetX + 367 * scaleX, y: offsetY + 843 * scaleY };
+    } else {
+      // Use measured anchors for landscape image, scaled to image
+      pxTopLeft = { x: 160 * scaleX, y: 134 * scaleY };
+      pxTopRight = { x: 841 * scaleX, y: 134 * scaleY };
+      pxBotLeft = { x: 160 * scaleX, y: 366 * scaleY };
+      pxBotRight = { x: 841 * scaleX, y: 366 * scaleY };
+    }
+
+    // === DEBUG: Anchor box and scaling ===
+    // console.log('[ANCHORS]', {
+    //   orientation: courtOrientation,
+    //   BG_SIZE,
+    //   drawWidth,
+    //   drawHeight,
+    //   offsetX,
+    //   offsetY,
+    //   scaleX,
+    //   scaleY,
+    //   pxTopLeft,
+    //   pxTopRight,
+    //   pxBotLeft,
+    //   pxBotRight,
+    // });
     const leftSinglesX = 0.914;
     const rightSinglesX = 8.229;
     const topY = 0;
     const botY = 23.77;
     function courtToPx(logical: { x: number; y: number }) {
-      const { x, y } = logicalToDisplay(logical);
-      const t = (x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-      const s = (y - topY) / (botY - topY);
-      const topX = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x);
-      const botX = pxBotLeft.x + t * (pxBotRight.x - pxBotLeft.x);
-      const xPx = topX + s * (botX - topX);
-      const yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y);
-      return { x: xPx, y: yPx };
+      if (courtOrientation === 'portrait') {
+        // Portrait: standard mapping
+        const t = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+        const s = (logical.y - topY) / (botY - topY);
+        const topX = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x);
+        const botX = pxBotLeft.x + t * (pxBotRight.x - pxBotLeft.x);
+        const xPx = topX + s * (botX - topX);
+        const yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y);
+        return { x: xPx, y: yPx };
+      } else {
+        // Landscape: swap axes for mapping
+        // logical.x (vertical, portrait Y) maps to horizontal axis
+        // logical.y (horizontal, portrait X) maps to vertical axis
+        // Landscape: swap axes so logical.y (length) maps to xPx, logical.x (width) maps to yPx
+        const t = (logical.y - topY) / (botY - topY); // 0 (top) to 1 (bottom)
+        const s = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX); // 0 (left) to 1 (right)
+        const xPx = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x);
+        const yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y);
+        return { x: xPx, y: yPx };
+
+      }
     }
     function pxToCourt({ px, py }: { px: number; py: number }) {
-      const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y);
-      const leftX = pxTopLeft.x + s * (pxBotLeft.x - pxTopLeft.x);
-      const rightX = pxTopRight.x + s * (pxBotRight.x - pxTopRight.x);
-      const t = (px - leftX) / (rightX - leftX);
-      const x = leftSinglesX + t * (rightSinglesX - leftSinglesX);
-      const y = topY + s * (botY - topY);
-      return displayToLogical({ x, y });
+      if (courtOrientation === 'portrait') {
+        // Portrait: original logic
+        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y);
+        const leftX = pxTopLeft.x + s * (pxBotLeft.x - pxTopLeft.x);
+        const rightX = pxTopRight.x + s * (pxBotRight.x - pxTopRight.x);
+        const t = (px - leftX) / (rightX - leftX);
+        const x = leftSinglesX + t * (rightSinglesX - leftSinglesX);
+        const y = topY + s * (botY - topY);
+        return displayToLogical({ x, y });
+      } else {
+        // Landscape: invert the swap logic of courtToPx
+        const t = (px - pxTopLeft.x) / (pxTopRight.x - pxTopLeft.x); // 0 (left) to 1 (right)
+        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y); // 0 (top) to 1 (bottom)
+        const logicalY = topY + t * (botY - topY);
+        const logicalX = leftSinglesX + s * (rightSinglesX - leftSinglesX);
+        // Landscape: do NOT call displayToLogical, just return the mapping directly
+        return { x: logicalX, y: logicalY };
+
+      }
     }
     function dist(x1: number, y1: number, x2: number, y2: number) {
       return Math.hypot(x1 - x2, y1 - y2);
@@ -477,13 +636,13 @@ const TennisCourt: React.FC = () => {
       courtToPx, pxToCourt
     };
     // === ANCHOR DEBUG LOG ===
-    console.log('Anchor debug', {
-      pxTopLeft, pxTopRight, pxBotLeft, pxBotRight,
-      leftSinglesX, rightSinglesX, topY, botY,
-      BG_SIZE,
-      drawWidth, drawHeight, offsetX, offsetY,
-      orientation: courtOrientation
-    });
+    // console.log('Anchor debug', {
+    //   pxTopLeft, pxTopRight, pxBotLeft, pxBotRight,
+    //   leftSinglesX, rightSinglesX, topY, botY,
+    //   BG_SIZE,
+    //   drawWidth, drawHeight, offsetX, offsetY,
+    //   orientation: courtOrientation
+    // });
     // === END ANCHOR DEBUG ===
     return anchorsRef.current;
   }
@@ -496,13 +655,13 @@ const TennisCourt: React.FC = () => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    console.log('Canvas debug', {
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      cssWidth: rect.width,
-      cssHeight: rect.height,
-      scaleX, scaleY
-    });
+    // console.log('Canvas debug', {
+    //   canvasWidth: canvas.width,
+    //   canvasHeight: canvas.height,
+    //   cssWidth: rect.width,
+    //   cssHeight: rect.height,
+    //   scaleX, scaleY
+    // });
     const px = (e.clientX - rect.left) * scaleX;
     const py = (e.clientY - rect.top) * scaleY;
     if (!anchorsRef.current || !anchorsRef.current.pxToCourt) return;
@@ -510,14 +669,53 @@ const TennisCourt: React.FC = () => {
     const pxInCourt = px - anchorsRef.current.offsetX;
     const pyInCourt = py - anchorsRef.current.offsetY;
     const { x: courtX, y: courtY } = anchorsRef.current.pxToCourt({ px: pxInCourt, py: pyInCourt });
-    if (dragging) {
-      console.log('PointerMove', { dragging, px, py, pxInCourt, pyInCourt, courtX, courtY });
-    }
+
+    if (anchorsRef.current) {
+  
+      let bgLogicalLeft, bgLogicalRight, bgLogicalTop, bgLogicalBottom;
+  if (courtOrientation === 'portrait') {
+    bgLogicalLeft = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).x;
+    bgLogicalRight = anchorsRef.current.pxToCourt({ px: anchorsRef.current.drawWidth, py: 0 }).x;
+    bgLogicalTop = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).y;
+    bgLogicalBottom = anchorsRef.current.pxToCourt({ px: 0, py: anchorsRef.current.drawHeight }).y;
+  } else {
+    // Landscape: axes are swapped
+    const leftX = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).x;
+    const rightX = anchorsRef.current.pxToCourt({ px: 0, py: anchorsRef.current.drawHeight }).x;
+    bgLogicalLeft = Math.min(leftX, rightX);
+    bgLogicalRight = Math.max(leftX, rightX);
+    const topY = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).y;
+    const bottomY = anchorsRef.current.pxToCourt({ px: anchorsRef.current.drawWidth, py: 0 }).y;
+    bgLogicalTop = Math.min(topY, bottomY);
+    bgLogicalBottom = Math.max(topY, bottomY);
+  }
+
+  console.log('[BG LOGICAL BOUNDS]', { courtOrientation, bgLogicalLeft, bgLogicalRight, bgLogicalTop, bgLogicalBottom });
+  
+    console.log('[DRAG LOGIC] Player1 drag', {
+    orientation: courtOrientation,
+    bgLogicalLeft, bgLogicalRight, bgLogicalTop, bgLogicalBottom,
+    courtX, courtY,
+    clampX: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+    clampY: clamp(courtY, bgLogicalTop, NET_Y)
+  });
     if (dragging === 'player1') {
-      setPlayer1({ x: courtX, y: Math.min(courtY, NET_Y) });
-      setHasMovedPlayer1(true);
-    }
-    else if (dragging === 'player2') setPlayer2({ x: courtX, y: Math.max(courtY, NET_Y) });
+  
+setPlayer1({
+  x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+  y: clamp(courtY, bgLogicalTop, NET_Y)
+});
+setHasMovedPlayer1(true);
+}
+else if (dragging === 'player2') {
+
+  
+setPlayer2({
+  x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+  y: clamp(courtY, NET_Y, bgLogicalBottom)
+});
+
+}
     else if (dragging === 'shot1') {
       setShot1({ x: courtX, y: courtY });
     }
@@ -525,6 +723,7 @@ const TennisCourt: React.FC = () => {
       setShot2({ x: courtX, y: courtY });
     }
   }
+}
 
   // --- Cursor feedback for draggable handles ---
   function handleMouseMove(e: React.MouseEvent) {
@@ -543,6 +742,22 @@ const TennisCourt: React.FC = () => {
 
   // --- Draw court and players ---
   function drawCourtAndPlayers(ctx: CanvasRenderingContext2D, anchors: any, bgImg: any) {
+    // --- DEBUG: Log anchor box and logical-to-pixel mapping for key points ---
+    if (anchors && courtOrientation === 'landscape') {
+      const { courtToPx } = anchors;
+      const logPx = (label: string, logical: {x: number, y: number}) => {
+        const px = courtToPx(logical);
+        // console.log(`[DEBUG MAP] ${label} logical:`, logical, 'pixel:', px);
+      };
+      logPx('Player1', { x: singlesCenterX, y: COURT_LENGTH });
+      logPx('Player2', { x: singlesCenterX, y: 0 });
+      logPx('Shot1', { x: leftSinglesX, y: 0 });
+      logPx('Shot2', { x: rightSinglesX, y: 0 });
+      logPx('Court Top-Left', { x: leftSinglesX, y: 0 });
+      logPx('Court Top-Right', { x: rightSinglesX, y: 0 });
+      logPx('Court Bottom-Left', { x: leftSinglesX, y: COURT_LENGTH });
+      logPx('Court Bottom-Right', { x: rightSinglesX, y: COURT_LENGTH });
+    }
     const {
       drawWidth, drawHeight, offsetX, offsetY, courtToPx
     } = anchors;
@@ -552,85 +767,123 @@ const TennisCourt: React.FC = () => {
     }
     const player1Px = courtToPx({ x: player1.x, y: player1.y });
     let swing: 'forehand'|'backhand';
+    // Helper to resolve Player 1's swing in auto mode
+    // Helper to resolve Player 1's swing in auto mode
+function resolvePlayer1Swing(
+  player1: { x: number; y: number },
+  handedness: 'left' | 'right',
+  orientation: CourtOrientation
+): 'forehand' | 'backhand' {
+  if (orientation === 'landscape') {
+    // Landscape: rel is based on x (sideline-to-sideline)
+    // leftSinglesX (min x) to rightSinglesX (max x)
+    const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+    // Right-handed: forehand on left 2/3, backhand on right 1/3
+    // Left-handed: forehand on right 2/3, backhand on left 1/3
+    return handedness === 'right'
+      ? (rel < 1/3 ? 'backhand' : 'forehand')
+      : (rel > 2/3 ? 'backhand' : 'forehand');
+  } else {
+        // Portrait logic (example: based on y position)
+        const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+    return handedness === 'right'
+      ? (rel < 2/3 ? 'forehand' : 'backhand')
+      : (rel > 1/3 ? 'forehand' : 'backhand');
+  }
+}
+   
+
     if (player1Swing === 'auto') {
-      const rel = (player1.x - 0.914) / (8.229 - 0.914);
-      swing = player1Handedness === 'right'
-        ? (rel < 2/3 ? 'forehand' : 'backhand')
-        : (rel > 1/3 ? 'forehand' : 'backhand');
+      swing = resolvePlayer1Swing(player1, player1Handedness, courtOrientation);
     } else {
       swing = player1Swing;
     }
     let theta: number;
-    if (player1Handedness === 'right') {
-      theta = swing === 'backhand' ? (Math.PI/4) : (3*Math.PI/4);
+    let baseAngle: number;
+    if (courtOrientation === 'landscape') {
+      baseAngle = Math.PI;
     } else {
-      theta = swing === 'backhand' ? (3*Math.PI/4) : (Math.PI/4);
+      baseAngle = -Math.PI / 2;
     }
-    const player1ArmExt = {
-      x: player1.x + ARM_RACKET_LENGTH * Math.cos(theta),
-      y: player1.y + ARM_RACKET_LENGTH * Math.sin(theta)
+    if (swing === 'forehand') {
+      theta = baseAngle + Math.PI / 3;
+    } else {
+      theta = baseAngle - Math.PI / 3;
+    }
+    const armPx = ARM_RACKET_LENGTH;
+    let player1ArmExt: { x: number; y: number };
+    let player1ArmExtPxForOverlay: { x: number; y: number };
+    player1ArmExt = {
+      x: player1.x + armPx * Math.cos(theta),
+      y: player1.y + armPx * Math.sin(theta)
     };
-    const player1ArmExtPx = courtToPx(player1ArmExt);
+    player1ArmExtPxForOverlay = courtToPx(player1ArmExt);
+
     const player2Px = courtToPx({ x: player2.x, y: player2.y });
     const shot1Px = courtToPx({ x: shot1.x, y: shot1.y });
     const shot2Px = courtToPx({ x: shot2.x, y: shot2.y });
-    const pxPerMeter = Math.sqrt(
-      (courtToPx({ x: player1.x + 1, y: player1.y }).x - player1Px.x) ** 2 +
-      (courtToPx({ x: player1.x, y: player1.y + 1 }).y - player1Px.y) ** 2
-    );
+
+    // console.log('[PLAYER1]', 'logical:', player1, 'pixel:', player1Px);
+    // console.log('[PLAYER2]', 'logical:', player2, 'pixel:', player2Px);
+    // console.log('[SHOT1]', 'logical:', shot1, 'pixel:', shot1Px);
+    // console.log('[SHOT2]', 'logical:', shot2, 'pixel:', shot2Px);
+
+    let pxPerMeter: number;
+    if (courtOrientation === 'portrait') {
+      pxPerMeter = Math.sqrt(
+        (courtToPx({ x: player1.x + 1, y: player1.y }).x - player1Px.x) ** 2 +
+        (courtToPx({ x: player1.x, y: player1.y + 1 }).y - player1Px.y) ** 2
+      );
+    } else {
+      // In landscape, x+1 is vertical, y+1 is horizontal
+      pxPerMeter = Math.sqrt(
+        (courtToPx({ x: player1.x, y: player1.y + 1 }).x - player1Px.x) ** 2 +
+        (courtToPx({ x: player1.x + 1, y: player1.y }).y - player1Px.y) ** 2
+      );
+    }
+    
     if (showAngles) {
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(player1ArmExtPx.x, player1ArmExtPx.y);
+      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
       ctx.lineTo(shot1Px.x, shot1Px.y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(player1ArmExtPx.x, player1ArmExtPx.y);
+      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
       ctx.lineTo(shot2Px.x, shot2Px.y);
       ctx.stroke();
       ctx.strokeStyle = 'orange';
       ctx.setLineDash([8, 8]);
       ctx.beginPath();
-      ctx.moveTo(player1ArmExtPx.x, player1ArmExtPx.y);
-      const { bisectorEndPx } = getBisectorAndP2(player1ArmExtPx);
+      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
+      const { bisectorEndPx } = getBisectorAndP2(player1ArmExtPxForOverlay);
       ctx.lineTo(bisectorEndPx.x, bisectorEndPx.y);
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    let resolvedSwing: 'forehand'|'backhand';
-    if (player1Swing === 'auto') {
-      const rel = (player1.x - 0.914) / (8.229 - 0.914);
-      resolvedSwing = player1Handedness === 'right'
-        ? (rel < 2/3 ? 'forehand' : 'backhand')
-        : (rel > 1/3 ? 'forehand' : 'backhand');
-    } else {
-      resolvedSwing = player1Swing;
+    // --- DEBUG: Show mapping for landscape mode ---
+    if (courtOrientation === 'landscape') {
+      console.log('[DRAW] player1Px', player1Px, 'player1', player1);
     }
-    drawPlayerHandle(ctx, player1Px.x, player1Px.y, 'blue', player1Handedness, pxPerMeter, resolvedSwing);
-    drawPlayerHandle(ctx, player2Px.x, player2Px.y, 'purple');
+    console.log('[drawCourtAndPlayers] player1Swing:', swing, 'orientation:', courtOrientation);
+    drawPlayerHandle(ctx, player1Px.x, player1Px.y, 'blue', player1Handedness, pxPerMeter, swing, true, courtOrientation);
+    drawPlayerHandle(ctx, player2Px.x, player2Px.y, 'purple', 'right', pxPerMeter, 'forehand', false, courtOrientation);
     if (showAngles) {
       drawShotHandle(ctx, shot1Px.x, shot1Px.y, 'red');
       drawShotHandle(ctx, shot2Px.x, shot2Px.y, 'red');
     }
 
-    // === DEBUG: Draw hit test centers ===
     ctx.save();
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = 'lime';
-    // Player 1
     ctx.beginPath(); ctx.arc(player1Px.x, player1Px.y, 4, 0, 2 * Math.PI); ctx.fill();
-    // Player 2
     ctx.beginPath(); ctx.arc(player2Px.x, player2Px.y, 4, 0, 2 * Math.PI); ctx.fill();
-    // Shot 1
     ctx.beginPath(); ctx.arc(shot1Px.x, shot1Px.y, 4, 0, 2 * Math.PI); ctx.fill();
-    // Shot 2
     ctx.beginPath(); ctx.arc(shot2Px.x, shot2Px.y, 4, 0, 2 * Math.PI); ctx.fill();
     ctx.restore();
-    // === END DEBUG ===
   }
 
-  // --- Pointer event handlers ---
   function handlePointerDown(e: React.PointerEvent) {
     if (!hitTestHandlesRef.current || !canvasRef.current || !anchorsRef.current) return;
     const canvas = canvasRef.current;
@@ -786,10 +1039,8 @@ const TennisCourt: React.FC = () => {
           title={`Player 1: ${player1Handedness} (${player1Swing === 'auto' ? 'auto' : player1Swing})\nDouble-click or long-press to toggle swing`}
         />
       </div>
-      {/* <div className={tcStyles.bottomControls}>Future bottom controls here</div> */}
     </div>
   );
-  
 };
 
 export default TennisCourt;
