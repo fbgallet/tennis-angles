@@ -16,7 +16,7 @@ interface PlayerHandleProps {
 
 // Arm/racket drawing constants (should be kept in sync with TennisCourt)
 const ARM_RACKET_LENGTH = 1.105; // meters (approximate: arm+racquet, 30% longer)
-const CONTACT_POINT_RATIO = 0.97; // Contact point is 97% of the arm+racquet length
+const CONTACT_POINT_RATIO = 0.92; // Contact point is 92% of the arm+racquet length (closer to racket end)
 
 /**
  * Draw a draggable player handle (canvas drawing helper)
@@ -26,29 +26,56 @@ export function getPlayerArmTheta({
   orientation,
   handedness,
   swing,
+  isPlayer1 = true,
 }: {
   orientation: CourtOrientation;
   handedness: "left" | "right";
   swing: "forehand" | "backhand";
+  isPlayer1?: boolean;
 }): number {
   if (orientation === "landscape") {
-    // Player faces right (+X):
-    //   Right-handed: forehand = +60° (PI/3), backhand = -60° (-PI/3)
-    //   Left-handed:  forehand = -60° (-PI/3), backhand = +60° (PI/3)
-    if (handedness === "right") {
-      return swing === "forehand"
-        ? Math.PI / 3 // 60°
-        : -Math.PI / 3; // -60° (or 300°)
+    // In landscape: Player 1 faces right (+X), Player 2 faces left (-X)
+    if (isPlayer1) {
+      // Player 1 faces right (toward +X direction)
+      if (handedness === "right") {
+        return swing === "forehand"
+          ? Math.PI / 3 // 60° (forward-right)
+          : -Math.PI / 3; // -60° (forward-left)
+      } else {
+        return swing === "forehand"
+          ? -Math.PI / 3 // -60° (forward-left)
+          : Math.PI / 3; // 60° (forward-right)
+      }
     } else {
-      return swing === "forehand"
-        ? -Math.PI / 3 // -60°
-        : Math.PI / 3; // +60°
+      // Player 2 faces left (toward -X direction) - angles are mirrored
+      if (handedness === "right") {
+        return swing === "forehand"
+          ? (4 * Math.PI) / 3 // 240° (forward-right for P2)
+          : (2 * Math.PI) / 3; // 120° (forward-left for P2)
+      } else {
+        return swing === "forehand"
+          ? (4 * Math.PI) / 3 // 240° (forward-right for P2)
+          : (2 * Math.PI) / 3; // 120° (forward-left for P2)
+      }
     }
   } else {
-    if (handedness === "right") {
-      return swing === "backhand" ? Math.PI / 6 : (5 * Math.PI) / 6;
+    // Portrait mode: Player 1 faces down (+Y), Player 2 faces up (-Y)
+    if (isPlayer1) {
+      // Player 1 faces down (toward opponent at y=COURT_LENGTH)
+      if (handedness === "right") {
+        return swing === "backhand" ? Math.PI / 6 : (5 * Math.PI) / 6;
+      } else {
+        return swing === "backhand" ? (5 * Math.PI) / 6 : Math.PI / 6;
+      }
     } else {
-      return swing === "backhand" ? (5 * Math.PI) / 6 : Math.PI / 6;
+      // Player 2 faces up (toward opponent at y=0) - forward is negative Y direction (toward y=0)
+      if (handedness === "right") {
+        // For Player 2 facing up: forehand is 330° (forward and to the right), backhand is 210° (forward and to the left)
+        return swing === "forehand" ? (11 * Math.PI) / 6 : (7 * Math.PI) / 6; // 330° for forehand, 210° for backhand
+      } else {
+        // Left-handed Player 2: forehand is 210° (forward and to the left), backhand is 330° (forward and to the right)
+        return swing === "forehand" ? (7 * Math.PI) / 6 : (11 * Math.PI) / 6; // 210° for forehand, 330° for backhand
+      }
     }
   }
 }
@@ -77,6 +104,7 @@ export function drawPlayerHandle({
     orientation,
     handedness,
     swing,
+    isPlayer1,
   });
   let endX: number;
   let endY: number;
@@ -99,12 +127,22 @@ export function drawPlayerHandle({
   ctx.moveTo(x, y);
   ctx.lineTo(endX, endY);
   ctx.stroke();
+  // Draw racket as oval shape (perpendicular to arm)
+  const racketWidth = 8;
+  const racketHeight = 4;
+  ctx.save();
+  ctx.translate(endX, endY);
+  ctx.rotate(theta + Math.PI / 2); // Rotate 90° to make racket perpendicular to arm
   ctx.beginPath();
-  ctx.arc(contactX, contactY, 6, 0, 2 * Math.PI);
+  ctx.ellipse(0, 0, racketWidth, racketHeight, 0, 0, 2 * Math.PI);
   ctx.fillStyle = swingColor;
   ctx.globalAlpha = 0.7;
   ctx.fill();
+  ctx.strokeStyle = swingColor;
+  ctx.lineWidth = 2;
   ctx.globalAlpha = 1.0;
+  ctx.stroke();
+  ctx.restore();
   if (isPlayer1) {
     ctx.save();
     ctx.beginPath();
