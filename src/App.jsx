@@ -1,5 +1,5 @@
 import "./App.css";
-import TennisCourtRefactored from "./components/TennisCourtRefactored";
+import TennisCourt from "./components/TennisCourt";
 
 function App() {
   return (
@@ -7,7 +7,7 @@ function App() {
       <h3 style={{ fontSize: 20, margin: "16px 0" }}>
         Tennis Angle Theory Visualizer (Refactored)
       </h3>
-      <TennisCourtRefactored />
+      <TennisCourt />
       <div
         style={{
           background: "rgba(255,255,255,0.8)",

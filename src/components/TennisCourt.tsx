@@ -1,1946 +1,353 @@
-import React, { useRef, useEffect, useState } from "react";
-import ShotInfoPanel from "./ShotInfoPanel"; // Used in sidebar panel
-import { drawPlayerHandle, getPlayerArmTheta } from "./PlayerHandle";
-
-// Tennis court dimensions (in meters)
-const COURT_LENGTH = 23.77;
-const COURT_WIDTH = 10.97;
-const SINGLES_WIDTH = 8.23;
-const NET_Y = COURT_LENGTH / 2; // Net Y position (middle of the court)
-
-// Responsive canvas: scale to parent/container
-function getScale(
-  width: number,
-  height: number,
-  BG_SIZE: { width: number; length: number }
-) {
-  return Math.min(width / BG_SIZE.width, height / BG_SIZE.length);
-}
-
-// Convert meters to canvas px (with scale and offset for extra space)
-// Pixel-perfect mapping using provided background pixel coordinates
-// Anchor points are now dynamic and defined in useEffect based on offsetX, offsetY, drawWidth, drawHeight.
-// Singles sideline anchors (ITF standard, meters from left edge)
-const leftSinglesX = 0.914;
-const rightSinglesX = 8.229;
-const singlesCenterX = (leftSinglesX + rightSinglesX) / 2;
-const topY = 0;
-const botY = COURT_LENGTH;
-
-// Default position for Player 1 (top side, center)
-// These helpers must use BG_SIZE for landscape, not COURT_WIDTH
-function getDefaultPlayer1(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Top center of court
-    return { x: singlesCenterX, y: 0 };
-  } else {
-    // Landscape: center sideline, left baseline
-    return { x: singlesCenterX, y: 0 };
-  }
-}
-function getDefaultPlayer2(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Bottom center of court
-    return { x: singlesCenterX, y: COURT_LENGTH };
-  } else {
-    // Landscape: center sideline, right baseline
-    return { x: singlesCenterX, y: COURT_LENGTH };
-  }
-}
-function getDefaultShot1(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Left singles sideline, bottom (opponent side)
-    return { x: leftSinglesX, y: COURT_LENGTH };
-  } else {
-    // Landscape: left sideline, opponent's baseline, vertical center
-    return { x: leftSinglesX, y: botY };
-  }
-}
-function getDefaultShot2(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Right singles sideline, bottom (opponent side)
-    return { x: rightSinglesX, y: COURT_LENGTH };
-  } else {
-    // Landscape: right sideline, opponent's baseline, vertical center
-    return { x: rightSinglesX, y: botY };
-  }
-}
-
-// Player2's shots (from opposite side)
-function getDefaultShot3(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Left singles sideline, top (opponent side for player2)
-    return { x: leftSinglesX, y: 0 };
-  } else {
-    // Landscape: left sideline, opponent's baseline for player2
-    return { x: leftSinglesX, y: topY };
-  }
-}
-
-function getDefaultShot4(orientation: CourtOrientation) {
-  if (orientation === "portrait") {
-    // Right singles sideline, top (opponent side for player2)
-    return { x: rightSinglesX, y: 0 };
-  } else {
-    // Landscape: right sideline, opponent's baseline for player2
-    return { x: rightSinglesX, y: topY };
-  }
-}
-
-function clamp(val: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, val));
-}
-
-// Hit detection radius in px
-const HANDLE_RADIUS = 18;
-const HANDLE_CLICK_RADIUS = 32; // Larger clickable zone for double-click/long-press
-
-type DragTarget =
-  | "player1"
-  | "player2"
-  | "shot1"
-  | "shot2"
-  | "shot3"
-  | "shot4"
-  | null;
-
+import React, { useEffect, useRef } from "react";
+import ShotInfoPanel from "./ShotInfoPanel";
+import CourtControls from "./CourtControls";
+import CourtCanvas from "./CourtCanvas";
+import { useCourtState } from "../hooks/useCourtState";
+import { useDragHandling } from "../hooks/useDragHandling";
+import { useCanvasSize } from "../hooks/useCanvasSize";
+import {
+  resolvePlayerSwing,
+  getContactPoint,
+  calculateAutoShotPositions,
+} from "../utils/tennis-logic";
+import {
+  calculateBisector,
+  calculateShotVectors,
+  calculatePlayerDistance,
+  getAngleDeg,
+} from "../utils/geometry";
+import { COURT_LENGTH } from "../constants/tennis";
+import { BG_SIZES } from "../constants/tennis";
 import tcStyles from "./TennisCourt.module.scss";
 
-// Arm/racket drawing constants
-const ARM_RACKET_LENGTH = 1.105; // meters (approximate: arm+racquet, 30% longer)
-const CONTACT_POINT_RATIO = 0.8; // Contact point is 92% of the arm+racquet length (closer to racket end)
-
-type CourtOrientation = "portrait" | "landscape";
-
-const COURT_BG_IMAGES: Record<string, Record<CourtOrientation, string>> = {
-  clay: {
-    portrait: "/court-bg-portrait-clay.png",
-    landscape: "/court-bg-landscape-clay.png",
-  },
-  hard: {
-    portrait: "/court-bg-portrait-hard.png",
-    landscape: "/court-bg-landscape-hard.png",
-  },
-  grass: {
-    portrait: "/court-bg-portrait-grass.png",
-    landscape: "/court-bg-landscape-grass.png",
-  },
-};
-
-type CourtType = "clay" | "hard" | "grass";
-
 const TennisCourt: React.FC = () => {
-  // --- Refs for coordinate transforms and hit testing ---
-  const pxToCourtRef = useRef<any>(null);
+  // Use custom hooks for state management
+  const courtState = useCourtState();
+  const dragHandling = useDragHandling();
+  const { canvasSize, containerRef } = useCanvasSize(
+    courtState.courtOrientation
+  );
+
+  // Refs for coordinate transforms
   const courtToPxRef = useRef<any>(null);
+  const pxToCourtRef = useRef<any>(null);
   const hitTestHandlesRef = useRef<any>(null);
 
-  // --- State ---
-  const [showStatsPanel, setShowStatsPanel] = useState(true);
-  const [showAngles, setShowAngles] = useState(false);
-  const [showAnglesPlayer2, setShowAnglesPlayer2] = useState(false);
-  const [showShotsPlayer1, setShowShotsPlayer1] = useState(false);
-  const [showShotsPlayer2, setShowShotsPlayer2] = useState(false);
-  const [showBisectorPlayer1, setShowBisectorPlayer1] = useState(false);
-  const [showBisectorPlayer2, setShowBisectorPlayer2] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [player1, setPlayer1] = useState(() => getDefaultPlayer1("portrait"));
-  const [player2, setPlayer2] = useState(() => getDefaultPlayer2("portrait"));
-  const [shot1, setShot1] = useState(() => getDefaultShot1("portrait"));
-  const [shot2, setShot2] = useState(() => getDefaultShot2("portrait"));
-  const [shot3, setShot3] = useState(() => getDefaultShot1("portrait")); // Player2's shots
-  const [shot4, setShot4] = useState(() => getDefaultShot2("portrait"));
-  const [hasMovedPlayer1, setHasMovedPlayer1] = useState(false);
-  const [hasMovedPlayer2, setHasMovedPlayer2] = useState(false);
-  const [courtOrientation, setCourtOrientation] =
-    useState<CourtOrientation>("portrait");
+  // Handle coordinate transforms from canvas
+  const handleTransformsReady = (transforms: any) => {
+    courtToPxRef.current = transforms.courtToPx;
+    pxToCourtRef.current = transforms.pxToCourt;
 
-  // Ensure player/shot positions are reset to correct side when orientation changes (unless user has dragged)
+    // Create hit test function
+    const hitTestHandles = dragHandling.createHitTestFunction(
+      courtState.player1,
+      courtState.player2,
+      courtState.shot1,
+      courtState.shot2,
+      courtState.shot3,
+      courtState.shot4,
+      transforms.courtToPx
+    );
+    hitTestHandlesRef.current = hitTestHandles;
+
+    // Store anchors for drag handling
+    dragHandling.anchorsRef.current = transforms;
+  };
+
+  // Auto-update shot endpoints based on Player 1 position
   useEffect(() => {
-    if (!hasMovedPlayer1) {
-      setPlayer1(getDefaultPlayer1(courtOrientation));
-      setShot1(getDefaultShot1(courtOrientation));
-      setShot2(getDefaultShot2(courtOrientation));
-    }
-    if (!hasMovedPlayer2) {
-      setPlayer2(getDefaultPlayer2(courtOrientation));
-      setShot3(getDefaultShot3(courtOrientation));
-      setShot4(getDefaultShot4(courtOrientation));
-    }
-  }, [courtOrientation, hasMovedPlayer1, hasMovedPlayer2]);
-  const [player1Handedness, setPlayer1Handedness] = useState<"right" | "left">(
-    "right"
-  );
-  const [player1Swing, setPlayer1Swing] = useState<
-    "auto" | "forehand" | "backhand"
-  >("auto");
-  const [player2Handedness, setPlayer2Handedness] = useState<"right" | "left">(
-    "right"
-  );
-  const [player2Swing, setPlayer2Swing] = useState<
-    "auto" | "forehand" | "backhand"
-  >("auto");
-  const [dragging, setDragging] = useState<DragTarget>(null);
+    if (!courtState.hasMovedPlayer1) return;
 
-  // --- Refs (if needed) ---
-  // Only declare refs for canvas or container if actually used in hooks/effects
-  const BG_SIZE =
-    courtOrientation === "portrait"
-      ? { width: 13.0, length: 28.0 }
-      : { width: 28.0, length: 13.0 }; // Landscape: swap width/length
+    const resolvedSwing =
+      courtState.player1Swing === "auto"
+        ? resolvePlayerSwing(
+            courtState.player1,
+            courtState.player1Handedness,
+            courtState.courtOrientation,
+            true,
+            courtState.prevPlayer1Swing,
+            courtState.setPrevPlayer1Swing
+          )
+        : courtState.player1Swing;
 
-  // --- Coordinate mapping helpers ---
-  // Fix: correct coordinate swap/mirror for landscape
-  function logicalToDisplay({ x, y }: { x: number; y: number }) {
-    // Always identity: logical coordinates are always in portrait system
-    return { x, y };
-  }
-  function displayToLogical({ x, y }: { x: number; y: number }) {
-    if (courtOrientation === "portrait") {
-      return { x, y };
-    } else {
-      // Inverse of above: (x, y) -> (COURT_WIDTH - y, x)
-      return { x: COURT_WIDTH - y, y: x };
-    }
-  }
+    const contact = getContactPoint(
+      courtState.player1,
+      courtState.player1Handedness,
+      resolvedSwing,
+      true,
+      courtState.courtOrientation,
+      courtToPxRef.current,
+      pxToCourtRef.current
+    );
 
-  // --- Remove global courtToPx and pxToCourt: these must only exist in the drawing effect with anchor scope ---
-  // Helper for baseline/net Y in BG coordinates
-  const BASELINE_OFFSET = (BG_SIZE.length - COURT_LENGTH) / 2;
-  const BASELINE_Y_BG = BASELINE_OFFSET + COURT_LENGTH;
-  const NET_Y_BG = BASELINE_OFFSET + COURT_LENGTH / 2;
-  const [canvasSize, setCanvasSize] = useState({ width: 400, height: 800 });
-  const [showOptimal, setShowOptimal] = useState(false);
-  // Court type (background)
-  const [courtType, setCourtType] = useState<CourtType>("hard");
-  const [bgImg, setBgImg] = useState<HTMLImageElement | null>(null);
-  const [bgLoaded, setBgLoaded] = useState(0); // Dummy state to force redraw
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+    const { shot1, shot2 } = calculateAutoShotPositions(
+      courtState.player1,
+      contact,
+      courtState.courtOrientation,
+      true
+    );
 
-  // Load court background image when courtType changes
+    courtState.setShot1(shot1);
+    courtState.setShot2(shot2);
+  }, [
+    courtState.player1.x,
+    courtState.player1.y,
+    courtState.hasMovedPlayer1,
+    courtState.player1Handedness,
+    courtState.player1Swing,
+    courtState.courtOrientation,
+  ]);
+
+  // Auto-update shot endpoints based on Player 2 position
   useEffect(() => {
-    const img = new window.Image();
-    img.src = COURT_BG_IMAGES[courtType][courtOrientation];
-    img.onload = () => {
-      setBgImg(img);
-      setBgLoaded((v) => v + 1); // Force redraw
-    };
-  }, [courtType, courtOrientation]);
+    if (!courtState.hasMovedPlayer2) return;
 
-  // Draw a shot endpoint handle (circle only)
-  function drawShotHandle(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    color: string
-  ) {
-    ctx.beginPath();
-    ctx.arc(x, y, HANDLE_RADIUS - 5, 0, 2 * Math.PI);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.globalAlpha = 0.7;
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-    ctx.beginPath();
-    ctx.arc(x, y, 7, 0, 2 * Math.PI);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
+    const resolvedSwing =
+      courtState.player2Swing === "auto"
+        ? resolvePlayerSwing(
+            courtState.player2,
+            courtState.player2Handedness,
+            courtState.courtOrientation,
+            false,
+            courtState.prevPlayer2Swing,
+            courtState.setPrevPlayer2Swing
+          )
+        : courtState.player2Swing;
 
-  // State to track previous swing for hysteresis
-  const [prevPlayer1Swing, setPrevPlayer1Swing] = useState<
-    "forehand" | "backhand"
-  >("forehand");
-  const [prevPlayer2Swing, setPrevPlayer2Swing] = useState<
-    "forehand" | "backhand"
-  >("forehand");
+    const contact = getContactPoint(
+      courtState.player2,
+      courtState.player2Handedness,
+      resolvedSwing,
+      false,
+      courtState.courtOrientation,
+      courtToPxRef.current,
+      pxToCourtRef.current
+    );
 
-  // Helper functions to resolve swing based on position with smooth transitions
-  function resolvePlayer1Swing(
-    player1: { x: number; y: number },
-    handedness: "left" | "right",
-    orientation: CourtOrientation
-  ): "forehand" | "backhand" {
-    const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+    const { shot1, shot2 } = calculateAutoShotPositions(
+      courtState.player2,
+      contact,
+      courtState.courtOrientation,
+      false
+    );
 
-    // Define transition zones with hysteresis
-    const TRANSITION_WIDTH = 0.25; // 25% transition zone
-    const CENTER = 0.4;
+    courtState.setShot3(shot1);
+    courtState.setShot4(shot2);
+  }, [
+    courtState.player2.x,
+    courtState.player2.y,
+    courtState.hasMovedPlayer2,
+    courtState.player2Handedness,
+    courtState.player2Swing,
+    courtState.courtOrientation,
+  ]);
 
-    let result: "forehand" | "backhand";
+  // Handle player 1 double-click for swing toggle
+  const handlePlayer1DoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!hitTestHandlesRef.current) return;
 
-    if (orientation === "landscape") {
-      // Landscape logic with smooth transitions
-      if (handedness === "right") {
-        // Right-handed: forehand on right side, backhand on left side
-        const threshold = CENTER;
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "backhand";
-        } else if (rel > threshold + hysteresis) {
-          result = "forehand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer1Swing;
-        }
-      } else {
-        // Left-handed: opposite
-        const threshold = CENTER;
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "forehand";
-        } else if (rel > threshold + hysteresis) {
-          result = "backhand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer1Swing;
-        }
-      }
-    } else {
-      // Portrait logic with smooth transitions
-      if (handedness === "right") {
-        const threshold = 0.6; // Slightly right of center
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "forehand";
-        } else if (rel > threshold + hysteresis) {
-          result = "backhand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer1Swing;
-        }
-      } else {
-        // Left-handed: opposite
-        const threshold = 0.4; // Slightly left of center
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "backhand";
-        } else if (rel > threshold + hysteresis) {
-          result = "forehand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer1Swing;
-        }
-      }
-    }
-
-    // Update previous swing state
-    if (result !== prevPlayer1Swing) {
-      setPrevPlayer1Swing(result);
-    }
-
-    return result;
-  }
-
-  function resolvePlayer2Swing(
-    player2: { x: number; y: number },
-    handedness: "left" | "right",
-    orientation: CourtOrientation
-  ): "forehand" | "backhand" {
-    const rel = (player2.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-
-    // Define transition zones with hysteresis
-    const TRANSITION_WIDTH = 0.25; // 25% transition zone
-    const CENTER = 0.6;
-
-    let result: "forehand" | "backhand";
-
-    if (orientation === "landscape") {
-      // Landscape logic - Player 2 faces opposite direction
-      if (handedness === "right") {
-        const threshold = CENTER;
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "forehand";
-        } else if (rel > threshold + hysteresis) {
-          result = "backhand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer2Swing;
-        }
-      } else {
-        // Left-handed: opposite
-        const threshold = CENTER;
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "backhand";
-        } else if (rel > threshold + hysteresis) {
-          result = "forehand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer2Swing;
-        }
-      }
-    } else {
-      // Portrait logic - Player 2 faces opposite direction
-      if (handedness === "right") {
-        const threshold = 0.4; // Slightly left of center (opposite of Player 1)
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "backhand";
-        } else if (rel > threshold + hysteresis) {
-          result = "forehand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer2Swing;
-        }
-      } else {
-        // Left-handed: opposite
-        const threshold = 0.6; // Slightly right of center
-        const hysteresis = TRANSITION_WIDTH / 2;
-
-        if (rel < threshold - hysteresis) {
-          result = "forehand";
-        } else if (rel > threshold + hysteresis) {
-          result = "backhand";
-        } else {
-          // In transition zone - use hysteresis
-          result = prevPlayer2Swing;
-        }
-      }
-    }
-
-    // Update previous swing state
-    if (result !== prevPlayer2Swing) {
-      setPrevPlayer2Swing(result);
-    }
-
-    return result;
-  }
-
-  // --- Helper: getContactPoint (shared between drawing and useEffect) ---
-  function getContactPoint(
-    player: { x: number; y: number },
-    handedness: "left" | "right",
-    swing: "forehand" | "backhand",
-    isPlayer1: boolean
-  ): { x: number; y: number } {
-    if (!courtToPxRef.current || !pxToCourtRef.current) {
-      // Fallback to simple calculation if refs not available
-      const theta = getPlayerArmTheta({
-        orientation: courtOrientation,
-        handedness,
-        swing,
-        isPlayer1,
-      });
-      const contactDistance = ARM_RACKET_LENGTH * CONTACT_POINT_RATIO;
-      return {
-        x: player.x + contactDistance * Math.cos(theta),
-        y: player.y + contactDistance * Math.sin(theta),
-      };
-    }
-
-    const theta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness,
-      swing,
-      isPlayer1,
-    });
-
-    // Use pixel-based calculation for consistency with drawing
-    const playerPx = courtToPxRef.current({ x: player.x, y: player.y });
-
-    // Calculate pxPerMeter (same logic as drawing)
-    let pxPerMeter: number;
-    if (courtOrientation === "portrait") {
-      const testPoint1 = courtToPxRef.current({ x: player.x + 1, y: player.y });
-      const testPoint2 = courtToPxRef.current({ x: player.x, y: player.y + 1 });
-      pxPerMeter = Math.sqrt(
-        (testPoint1.x - playerPx.x) ** 2 + (testPoint2.y - playerPx.y) ** 2
-      );
-    } else {
-      const testPoint1 = courtToPxRef.current({ x: player.x, y: player.y + 1 });
-      const testPoint2 = courtToPxRef.current({ x: player.x + 1, y: player.y });
-      pxPerMeter = Math.sqrt(
-        (testPoint1.x - playerPx.x) ** 2 + (testPoint2.y - playerPx.y) ** 2
-      );
-    }
-
-    // Calculate contact point in pixel space
-    const contactPx = ARM_RACKET_LENGTH * pxPerMeter * CONTACT_POINT_RATIO;
-    const visualContactPx = {
-      x: playerPx.x + contactPx * Math.cos(theta),
-      y: playerPx.y + contactPx * Math.sin(theta),
-    };
-
-    // Convert back to logical coordinates
-    return pxToCourtRef.current({
-      px: visualContactPx.x,
-      py: visualContactPx.y,
-    });
-  }
-
-  // --- Helper: getBisectorAndP1 (for player2's angles and bisector) ---
-  function getBisectorAndP1(originPx?: { x: number; y: number }) {
-    // Use true angle bisector in meters (not pixels)
-    // Use the same contact point that's used for drawing the arm
-    const armExt = (() => {
-      // If originPx is provided, convert to court coords to ensure consistency
-      if (originPx && pxToCourtRef.current) {
-        const convertedPoint = pxToCourtRef.current({
-          px: originPx.x,
-          py: originPx.y,
-        });
-
-        return convertedPoint;
-      }
-
-      // Otherwise calculate the contact point using the same logic as drawing
-      const resolvedSwing =
-        player2Swing === "auto"
-          ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
-          : player2Swing;
-      const theta = getPlayerArmTheta({
-        orientation: courtOrientation,
-        handedness: player2Handedness,
-        swing: resolvedSwing,
-        isPlayer1: false,
-      });
-
-      // Use the same pixel-based calculation as the drawing function
-      const player2Px = courtToPxRef.current
-        ? courtToPxRef.current({ x: player2.x, y: player2.y })
-        : { x: 0, y: 0 };
-
-      // Calculate pxPerMeter (same logic as drawing)
-      let pxPerMeter: number;
-      if (courtOrientation === "portrait") {
-        const testPoint1 = courtToPxRef.current
-          ? courtToPxRef.current({ x: player2.x + 1, y: player2.y })
-          : { x: 0, y: 0 };
-        const testPoint2 = courtToPxRef.current
-          ? courtToPxRef.current({ x: player2.x, y: player2.y + 1 })
-          : { x: 0, y: 0 };
-        pxPerMeter = Math.sqrt(
-          (testPoint1.x - player2Px.x) ** 2 + (testPoint2.y - player2Px.y) ** 2
-        );
-      } else {
-        const testPoint1 = courtToPxRef.current
-          ? courtToPxRef.current({ x: player2.x, y: player2.y + 1 })
-          : { x: 0, y: 0 };
-        const testPoint2 = courtToPxRef.current
-          ? courtToPxRef.current({ x: player2.x + 1, y: player2.y })
-          : { x: 0, y: 0 };
-        pxPerMeter = Math.sqrt(
-          (testPoint1.x - player2Px.x) ** 2 + (testPoint2.y - player2Px.y) ** 2
-        );
-      }
-
-      // Calculate contact point in pixel space
-      const contactPx = ARM_RACKET_LENGTH * pxPerMeter * CONTACT_POINT_RATIO;
-      const visualContactPx = {
-        x: player2Px.x + contactPx * Math.cos(theta),
-        y: player2Px.y + contactPx * Math.sin(theta),
-      };
-
-      // Convert back to logical coordinates
-      const contactPoint = pxToCourtRef.current
-        ? pxToCourtRef.current({ px: visualContactPx.x, py: visualContactPx.y })
-        : { x: player2.x, y: player2.y };
-
-      // DEBUG: Log Player 2 contact point calculation
-      console.log("[PLAYER 2 BISECTOR CONTACT DEBUG]", {
-        player2Position: player2,
-        handedness: player2Handedness,
-        swing: resolvedSwing,
-        theta: theta,
-        thetaDegrees: (theta * 180) / Math.PI,
-        armLength: ARM_RACKET_LENGTH,
-        contactRatio: CONTACT_POINT_RATIO,
-        contactPoint: contactPoint,
-        deltaFromPlayer: {
-          x: contactPoint.x - player2.x,
-          y: contactPoint.y - player2.y,
-        },
-        courtOrientation: courtOrientation,
-        calculationSource: "BISECTOR_FUNCTION",
-      });
-
-      return contactPoint;
-    })();
-    const v1 = { x: shot3.x - armExt.x, y: shot3.y - armExt.y };
-    const v2 = { x: shot4.x - armExt.x, y: shot4.y - armExt.y };
-    // Normalize
-    const len1 = Math.hypot(v1.x, v1.y);
-    const len2 = Math.hypot(v2.x, v2.y);
-    const n1 = { x: v1.x / len1, y: v1.y / len1 };
-    const n2 = { x: v2.x / len2, y: v2.y / len2 };
-    // Bisector direction
-    const bis = { x: n1.x + n2.x, y: n1.y + n2.y };
-    const bisLen = Math.hypot(bis.x, bis.y);
-    const bisNorm = { x: bis.x / bisLen, y: bis.y / bisLen };
-
-    // DEBUG: Log bisector calculation details
-    // console.log("[PLAYER 2 BISECTOR CALCULATION DEBUG]", {
-    //   armExt: armExt,
-    //   shot3: shot3,
-    //   shot4: shot4,
-    //   v1: v1,
-    //   v2: v2,
-    //   n1: n1,
-    //   n2: n2,
-    //   bis: bis,
-    //   bisNorm: bisNorm,
-    //   courtOrientation: courtOrientation,
-    // });
-
-    // Calculate intersection with background edge - orientation aware
-    let bisectorEnd: { x: number; y: number };
-
-    if (courtOrientation === "landscape") {
-      // In landscape mode, extend the bisector much further
-      const LARGE_DISTANCE = 50; // Much larger than any court dimension
-      bisectorEnd = {
-        x: armExt.x + bisNorm.x * LARGE_DISTANCE,
-        y: armExt.y + bisNorm.y * LARGE_DISTANCE,
-      };
-    } else {
-      // Portrait mode: use same large distance approach as landscape mode
-      const LARGE_DISTANCE = 50; // Much larger than any court dimension
-      bisectorEnd = {
-        x: armExt.x + bisNorm.x * LARGE_DISTANCE,
-        y: armExt.y + bisNorm.y * LARGE_DISTANCE,
-      };
-    }
-
-    // Optimal P1 position: just behind baseline, at intersection with baseline
-    const optimalP1 = {
-      x: armExt.x + bisNorm.x * ((0 - armExt.y) / bisNorm.y), // Player2 aims toward y=0
-      y: 0,
-    };
-    // If you want the pixel version for drawing:
-    const courtToPx = courtToPxRef.current || (() => ({ x: 0, y: 0 }));
-    return {
-      bisectorEndPx: courtToPx({ x: bisectorEnd.x, y: bisectorEnd.y }),
-      optimalP1Px: courtToPx({ x: optimalP1.x, y: optimalP1.y }),
-      optimalP1,
-    };
-  }
-
-  // --- Helper: getBisectorAndP2 (for Player 1's bisector toward Player 2's side) ---
-  function getBisectorAndP2(originPx?: { x: number; y: number }) {
-    // Use true angle bisector in meters (not pixels)
-    // Use arm+racquet contact point as origin for Player 1
-    const armExt = (() => {
-      // If originPx is provided, convert to court coords
-      if (originPx && pxToCourtRef.current) {
-        return pxToCourtRef.current({ px: originPx.x, py: originPx.y });
-      }
-      // Otherwise use player1 + arm - calculate based on handedness and swing
-      const resolvedSwing =
-        player1Swing === "auto"
-          ? resolvePlayer1Swing(player1, player1Handedness, courtOrientation)
-          : player1Swing;
-      const theta = getPlayerArmTheta({
-        orientation: courtOrientation,
-        handedness: player1Handedness,
-        swing: resolvedSwing,
-        isPlayer1: true,
-      });
-
-      const contactPoint = {
-        x:
-          player1.x + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(theta),
-        y:
-          player1.y + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(theta),
-      };
-
-      // DEBUG: Log Player 1 contact point calculation
-      // console.log("[PLAYER 1 CONTACT DEBUG]", {
-      //   player1Position: player1,
-      //   handedness: player1Handedness,
-      //   swing: resolvedSwing,
-      //   theta: theta,
-      //   thetaDegrees: (theta * 180) / Math.PI,
-      //   armLength: ARM_RACKET_LENGTH,
-      //   contactRatio: CONTACT_POINT_RATIO,
-      //   contactPoint: contactPoint,
-      //   deltaFromPlayer: {
-      //     x: contactPoint.x - player1.x,
-      //     y: contactPoint.y - player1.y,
-      //   },
-      //   courtOrientation: courtOrientation,
-      // });
-
-      return contactPoint;
-    })();
-    const v1 = { x: shot1.x - armExt.x, y: shot1.y - armExt.y };
-    const v2 = { x: shot2.x - armExt.x, y: shot2.y - armExt.y };
-    // Normalize
-    const len1 = Math.hypot(v1.x, v1.y);
-    const len2 = Math.hypot(v2.x, v2.y);
-    const n1 = { x: v1.x / len1, y: v1.y / len1 };
-    const n2 = { x: v2.x / len2, y: v2.y / len2 };
-    // Bisector direction
-    const bis = { x: n1.x + n2.x, y: n1.y + n2.y };
-    const bisLen = Math.hypot(bis.x, bis.y);
-    const bisNorm = { x: bis.x / bisLen, y: bis.y / bisLen };
-
-    // Calculate intersection with background edge - orientation aware
-    let bisectorEnd: { x: number; y: number };
-
-    // For landscape mode, we want to extend much further since the court is rotated
-    // In landscape, the logical coordinate system is still portrait-based, but we need
-    // to extend the bisector to a much larger distance to reach the visual edge
-    if (courtOrientation === "landscape") {
-      // In landscape mode, extend the bisector much further
-      // Use a large multiplier to ensure it reaches the edge of the background
-      const LARGE_DISTANCE = 50; // Much larger than any court dimension
-      bisectorEnd = {
-        x: armExt.x + bisNorm.x * LARGE_DISTANCE,
-        y: armExt.y + bisNorm.y * LARGE_DISTANCE,
-      };
-
-      console.log("[BISECTOR LANDSCAPE]", {
-        orientation: courtOrientation,
-        BG_SIZE,
-        armExt,
-        bisNorm,
-        LARGE_DISTANCE,
-        bisectorEnd,
-      });
-    } else {
-      // Portrait mode: use the original boundary intersection logic
-      const bgBounds = {
-        left: 0,
-        right: BG_SIZE.width,
-        top: 0,
-        bottom: BG_SIZE.length,
-      };
-
-      // Find which boundary the bisector will hit first
-      const intersections = [];
-
-      // Check intersection with right boundary (x = BG_SIZE.width)
-      if (bisNorm.x > 0) {
-        const t_right = (bgBounds.right - armExt.x) / bisNorm.x;
-        const y_right = armExt.y + bisNorm.y * t_right;
-        if (
-          y_right >= bgBounds.top &&
-          y_right <= bgBounds.bottom &&
-          t_right > 0
-        ) {
-          intersections.push({ t: t_right, x: bgBounds.right, y: y_right });
-        }
-      }
-
-      // Check intersection with left boundary (x = 0)
-      if (bisNorm.x < 0) {
-        const t_left = (bgBounds.left - armExt.x) / bisNorm.x;
-        const y_left = armExt.y + bisNorm.y * t_left;
-        if (y_left >= bgBounds.top && y_left <= bgBounds.bottom && t_left > 0) {
-          intersections.push({ t: t_left, x: bgBounds.left, y: y_left });
-        }
-      }
-
-      // Check intersection with bottom boundary (y = BG_SIZE.length)
-      if (bisNorm.y > 0) {
-        const t_bottom = (bgBounds.bottom - armExt.y) / bisNorm.y;
-        const x_bottom = armExt.x + bisNorm.x * t_bottom;
-        if (
-          x_bottom >= bgBounds.left &&
-          x_bottom <= bgBounds.right &&
-          t_bottom > 0
-        ) {
-          intersections.push({ t: t_bottom, x: x_bottom, y: bgBounds.bottom });
-        }
-      }
-
-      // Check intersection with top boundary (y = 0)
-      if (bisNorm.y < 0) {
-        const t_top = (bgBounds.top - armExt.y) / bisNorm.y;
-        const x_top = armExt.x + bisNorm.x * t_top;
-        if (x_top >= bgBounds.left && x_top <= bgBounds.right && t_top > 0) {
-          intersections.push({ t: t_top, x: x_top, y: bgBounds.top });
-        }
-      }
-
-      // Find the closest intersection (smallest positive t)
-      if (intersections.length > 0) {
-        const closest = intersections.reduce((min, curr) =>
-          curr.t < min.t ? curr : min
-        );
-        bisectorEnd = { x: closest.x, y: closest.y };
-      } else {
-        // Fallback to original logic if no intersection found
-        const t = (BG_SIZE.length - armExt.y) / bisNorm.y;
-        bisectorEnd = {
-          x: armExt.x + bisNorm.x * t,
-          y: BG_SIZE.length,
-        };
-      }
-    }
-
-    // Optimal P2 position: just behind baseline, at intersection with baseline
-    const optimalP2 = {
-      x: armExt.x + bisNorm.x * ((COURT_LENGTH - armExt.y) / bisNorm.y),
-      y: COURT_LENGTH,
-    };
-    // If you want the pixel version for drawing:
-    const courtToPx = courtToPxRef.current || (() => ({ x: 0, y: 0 }));
-    return {
-      bisectorEndPx: courtToPx({ x: bisectorEnd.x, y: bisectorEnd.y }),
-      optimalP2Px: courtToPx({ x: optimalP2.x, y: optimalP2.y }),
-      optimalP2,
-    };
-  }
-
-  // --- Player1 handle double-click for swing toggle ---
-  // Dummy state to force redraw after swing change
-  const [_, forceUpdate] = useState(0);
-
-  function handlePlayer1DoubleClickCanvas(
-    e: React.MouseEvent<HTMLCanvasElement>
-  ) {
-    if (!canvasRef.current || !hitTestHandlesRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    // Use orientation-aware hit test
+
     const hit = hitTestHandlesRef.current(px, py);
     if (hit === "player1") {
-      setPlayer1Swing((s) => {
+      courtState.setPlayer1Swing((s) => {
         const next =
           s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
         return next;
       });
-      // Force immediate redraw for instant feedback
-      setHasMovedPlayer1((v) => !v);
+      courtState.setHasMovedPlayer1(true);
     }
-  }
+  };
 
-  // --- Mobile long-press support for swing toggle ---
+  // Mobile long-press support for swing toggle
   let longPressTimer: number | null = null;
-  function handleTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
-    if (!canvasRef.current || !hitTestHandlesRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!hitTestHandlesRef.current) return;
+
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
     const touch = e.touches[0];
     const px = touch.clientX - rect.left;
     const py = touch.clientY - rect.top;
-    // Use orientation-aware hit test
+
     const hit = hitTestHandlesRef.current(px, py);
     if (hit === "player1") {
       longPressTimer = window.setTimeout(() => {
-        setPlayer1Swing((s) => {
+        courtState.setPlayer1Swing((s) => {
           const next =
             s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
-          forceUpdate((v) => v + 1);
           return next;
         });
-      }, 500); // 500ms long-press
+        courtState.setHasMovedPlayer1(true);
+      }, 500);
     }
-  }
-  function handleTouchEnd() {
+  };
+
+  const handleTouchEnd = () => {
     if (longPressTimer) {
       clearTimeout(longPressTimer);
       longPressTimer = null;
     }
-  }
+  };
 
-  // --- Auto-update shot endpoints based on Player 1 position ---
-  useEffect(() => {
-    if (!hasMovedPlayer1) return;
-    // Calculate proper contact point using the same logic as drawing
+  // Game logic handlers
+  const handleCheckPosition = () => {
+    if (!courtToPxRef.current) return;
+
+    // Get player 1's contact point and calculate bisector
     const resolvedSwing =
-      player1Swing === "auto"
-        ? resolvePlayer1Swing(player1, player1Handedness, courtOrientation)
-        : player1Swing;
-    const theta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness: player1Handedness,
-      swing: resolvedSwing,
-      isPlayer1: true,
-    });
-
-    console.log("player1.x :>> ", player1.x);
+      courtState.player1Swing === "auto"
+        ? resolvePlayerSwing(
+            courtState.player1,
+            courtState.player1Handedness,
+            courtState.courtOrientation,
+            true,
+            courtState.prevPlayer1Swing
+          )
+        : courtState.player1Swing;
 
     const contact = getContactPoint(
-      player1,
-      player1Handedness,
+      courtState.player1,
+      courtState.player1Handedness,
       resolvedSwing,
-      true
-    );
-    console.log("contact.x :>> ", contact.x);
-    // Down-the-line: interpolate from baseline to service line as player advances
-    const downLineX = contact.x < singlesCenterX ? leftSinglesX : rightSinglesX;
-    const serviceLineY = NET_Y + 6.4;
-    const forwardNet = clamp(
-      -(contact.y - NET_Y) / (COURT_LENGTH - NET_Y),
-      0,
-      1
-    );
-    const lateral = clamp(
-      Math.abs(contact.x - singlesCenterX) / (COURT_WIDTH / 2),
-      0,
-      1.2
-    );
-    const downLineY =
-      COURT_LENGTH -
-      (forwardNet < 1
-        ? (1 - Math.min(lateral, 1)) *
-          (COURT_LENGTH - serviceLineY) *
-          (1 - forwardNet)
-        : 0);
-    const downLine = { x: downLineX, y: downLineY };
-    // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
-    const crossX = contact.x < singlesCenterX ? rightSinglesX : leftSinglesX;
-
-    const lateralScale = 7;
-    const forwardScale = 5;
-    console.log("lateral :>> ", lateral);
-
-    const crossY = Math.max(
-      COURT_LENGTH -
-        lateral * lateralScale -
-        (forwardNet < 1 ? (1 - forwardNet) * forwardScale : 0),
-      NET_Y + 1
-    );
-    const cross = { x: crossX, y: crossY };
-    setShot1(downLine);
-    setShot2(cross);
-  }, [
-    player1.x,
-    player1.y,
-    hasMovedPlayer1,
-    player1Handedness,
-    player1Swing,
-    courtOrientation,
-  ]);
-
-  // --- Auto-update shot endpoints based on Player 2 position ---
-  useEffect(() => {
-    if (!hasMovedPlayer2) return;
-    // Calculate proper contact point using the same logic as drawing
-    const resolvedSwing =
-      player2Swing === "auto"
-        ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
-        : player2Swing;
-    const theta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness: player2Handedness,
-      swing: resolvedSwing,
-      isPlayer1: false,
-    });
-
-    const contact = getContactPoint(
-      player2,
-      player2Handedness,
-      resolvedSwing,
-      false
+      true,
+      courtState.courtOrientation,
+      courtToPxRef.current,
+      pxToCourtRef.current
     );
 
-    // Use EXACT same logic as Player1 but mirrored for opposite side
-    // Down-the-line: interpolate from baseline to service line as player advances
-    const downLineX = contact.x < singlesCenterX ? leftSinglesX : rightSinglesX;
-    const serviceLineY = NET_Y - 6.4; // Player2's service line (mirror of Player1's NET_Y + 6.4)
-
-    // Forward progress calculation - Player2 moves from COURT_LENGTH toward NET_Y (opposite of Player1)
-    const forwardNet = clamp(
-      -(contact.y - NET_Y) / (0 - NET_Y), // Player2 moves toward y=0, same formula structure as Player1
-      0,
-      1
+    const bisectorResult = calculateBisector(
+      contact,
+      courtState.shot1,
+      courtState.shot2,
+      courtToPxRef.current,
+      BG_SIZES[courtState.courtOrientation],
+      courtState.courtOrientation,
+      COURT_LENGTH
     );
 
-    const lateral = clamp(
-      Math.abs(contact.x - singlesCenterX) / (COURT_WIDTH / 2),
-      0,
-      1.2
-    );
-    console.log("Player2 lateral :>> ", lateral);
-
-    // Down-the-line Y calculation - mirror Player1's logic exactly
-    const downLineY =
-      0 + // Player2's target baseline is at y=0 (mirror of Player1's COURT_LENGTH)
-      (forwardNet < 1
-        ? (1 - Math.min(lateral, 1)) *
-          (serviceLineY - 0) * // Distance from target baseline to service line
-          (1 - forwardNet)
-        : 0);
-    const downLine = { x: downLineX, y: downLineY };
-
-    // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
-    const crossX = contact.x < singlesCenterX ? rightSinglesX : leftSinglesX;
-
-    // Orientation-aware distance scaling for cross-court shots (same as Player 1)
-    const lateralScale = courtOrientation === "portrait" ? 7 : 7.5; // Reduced for landscape
-    const forwardScale = courtOrientation === "portrait" ? 5 : 5.5; // Reduced for landscape
-
-    const crossY = Math.min(
-      // Use Math.min instead of Math.max (opposite of Player1)
-      0 +
-        lateral * lateralScale +
-        (forwardNet < 1 ? (1 - forwardNet) * forwardScale : 0),
-      NET_Y - 1 // Don't go past 1m from net
-    );
-    const cross = { x: crossX, y: crossY };
-    setShot3(downLine);
-    setShot4(cross);
-  }, [
-    player2.x,
-    player2.y,
-    hasMovedPlayer2,
-    player2Handedness,
-    player2Swing,
-    courtOrientation,
-  ]);
-
-  // Responsive resize with aspect ratio lock
-  useEffect(() => {
-    function updateCanvasSize() {
-      if (containerRef.current) {
-        const containerW = containerRef.current.clientWidth;
-        const containerH = containerRef.current.clientHeight;
-        let width = containerW;
-        let height = containerH;
-        // Use correct aspect ratio for orientation
-        let aspect = BG_SIZE.width / BG_SIZE.length; // width/height always
-        if (courtOrientation === "portrait") {
-          // Portrait: width < height
-          if (containerW / containerH > aspect) {
-            height = containerH;
-            width = Math.round(height * aspect);
-          } else {
-            width = containerW;
-            height = Math.round(width / aspect);
-          }
-        } else {
-          // Landscape: width > height
-          // Swap containerW and containerH for the aspect calculation
-          aspect = BG_SIZE.width / BG_SIZE.length;
-          if (containerH / containerW > 1 / aspect) {
-            width = containerW;
-            height = Math.round(width / aspect);
-          } else {
-            height = containerH;
-            width = Math.round(height * aspect);
-          }
-        }
-
-        setCanvasSize({ width, height });
-      }
-    }
-    updateCanvasSize();
-    window.addEventListener("resize", updateCanvasSize);
-    return () => window.removeEventListener("resize", updateCanvasSize);
-  }, [courtOrientation, BG_SIZE.width, BG_SIZE.length]);
-  // Main effect: handles mapping, refs, and drawing using anchor-based mapping
-  // --- Helper: setupCourtTransformsAndAnchors ---
-  const anchorsRef = useRef<any>(null);
-
-  function setupCourtTransformsAndAnchors({
-    canvasW,
-    canvasH,
-    BG_SIZE,
-    courtOrientation,
-    logicalToDisplay,
-    displayToLogical,
-    courtToPxRef,
-    pxToCourtRef,
-    hitTestHandlesRef,
-  }: any) {
-    // Compute draw size/aspect
-    const BG_ORIG_WIDTH = courtOrientation === "portrait" ? 500 : 1000;
-    const BG_ORIG_HEIGHT = courtOrientation === "portrait" ? 1000 : 500;
-    let drawWidth = canvasW;
-    let drawHeight = canvasH;
-    let offsetX = 0;
-    let offsetY = 0;
-    const scaleX = drawWidth / BG_ORIG_WIDTH;
-    const scaleY = drawHeight / BG_ORIG_HEIGHT;
-    let pxTopLeft: { x: number; y: number };
-    let pxTopRight: { x: number; y: number };
-    let pxBotLeft: { x: number; y: number };
-    let pxBotRight: { x: number; y: number };
-
-    if (courtOrientation === "portrait") {
-      pxTopLeft = { x: offsetX + 134 * scaleX, y: offsetY + 161 * scaleY };
-      pxTopRight = { x: offsetX + 367 * scaleX, y: offsetY + 161 * scaleY };
-      pxBotLeft = { x: offsetX + 134 * scaleX, y: offsetY + 843 * scaleY };
-      pxBotRight = { x: offsetX + 367 * scaleX, y: offsetY + 843 * scaleY };
-    } else {
-      // Use measured anchors for landscape image, scaled to image
-      pxTopLeft = { x: 160 * scaleX, y: 134 * scaleY };
-      pxTopRight = { x: 841 * scaleX, y: 134 * scaleY };
-      pxBotLeft = { x: 160 * scaleX, y: 366 * scaleY };
-      pxBotRight = { x: 841 * scaleX, y: 366 * scaleY };
-    }
-
-    // === DEBUG: Anchor box and scaling ===
-    // console.log('[ANCHORS]', {
-    //   orientation: courtOrientation,
-    //   BG_SIZE,
-    //   drawWidth,
-    //   drawHeight,
-    //   offsetX,
-    //   offsetY,
-    //   scaleX,
-    //   scaleY,
-    //   pxTopLeft,
-    //   pxTopRight,
-    //   pxBotLeft,
-    //   pxBotRight,
-    // });
-    const leftSinglesX = 0.914;
-    const rightSinglesX = 8.229;
-    const topY = 0;
-    const botY = 23.77;
-    function courtToPx(logical: { x: number; y: number }) {
-      if (courtOrientation === "portrait") {
-        // Portrait: standard mapping
-        const t = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-        const s = (logical.y - topY) / (botY - topY);
-        const topX = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x);
-        const botX = pxBotLeft.x + t * (pxBotRight.x - pxBotLeft.x);
-        const xPx = topX + s * (botX - topX);
-        const yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y);
-        return { x: xPx, y: yPx };
-      } else {
-        // Landscape: swap axes for mapping
-        // logical.x (vertical, portrait Y) maps to horizontal axis
-        // logical.y (horizontal, portrait X) maps to vertical axis
-        // Landscape: swap axes so logical.y (length) maps to xPx, logical.x (width) maps to yPx
-        const t = (logical.y - topY) / (botY - topY); // 0 (top) to 1 (bottom)
-        const s = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX); // 0 (left) to 1 (right)
-        const xPx = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x);
-        const yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y);
-        return { x: xPx, y: yPx };
-      }
-    }
-    function pxToCourt({ px, py }: { px: number; py: number }) {
-      if (courtOrientation === "portrait") {
-        // Portrait: original logic
-        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y);
-        const leftX = pxTopLeft.x + s * (pxBotLeft.x - pxTopLeft.x);
-        const rightX = pxTopRight.x + s * (pxBotRight.x - pxTopRight.x);
-        const t = (px - leftX) / (rightX - leftX);
-        const x = leftSinglesX + t * (rightSinglesX - leftSinglesX);
-        const y = topY + s * (botY - topY);
-        return displayToLogical({ x, y });
-      } else {
-        // Landscape: properly invert the courtToPx mapping
-        // courtToPx does: xPx = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x) where t = (logical.y - topY) / (botY - topY)
-        // courtToPx does: yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y) where s = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX)
-        const t = (px - pxTopLeft.x) / (pxTopRight.x - pxTopLeft.x); // Extract t from xPx
-        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y); // Extract s from yPx
-        // Invert the mapping: t maps to logical.y, s maps to logical.x
-        const logicalY = topY + t * (botY - topY); // t -> logical.y
-        const logicalX = leftSinglesX + s * (rightSinglesX - leftSinglesX); // s -> logical.x
-        return { x: logicalX, y: logicalY };
-      }
-    }
-    function dist(x1: number, y1: number, x2: number, y2: number) {
-      return Math.hypot(x1 - x2, y1 - y2);
-    }
-    function hitTestHandles(
-      px: number,
-      py: number,
-      radiusOverride?: number
-    ): DragTarget {
-      const r = radiusOverride ?? HANDLE_RADIUS;
-      const player1Px = courtToPx({ x: player1.x, y: player1.y });
-      const player2Px = courtToPx({ x: player2.x, y: player2.y });
-      const shot1Px = courtToPx({ x: shot1.x, y: shot1.y });
-      const shot2Px = courtToPx({ x: shot2.x, y: shot2.y });
-      const shot3Px = courtToPx({ x: shot3.x, y: shot3.y });
-      const shot4Px = courtToPx({ x: shot4.x, y: shot4.y });
-
-      if (dist(px, py, player1Px.x, player1Px.y) < r) return "player1";
-      if (dist(px, py, player2Px.x, player2Px.y) < r) return "player2";
-      if (dist(px, py, shot1Px.x, shot1Px.y) < r) return "shot1";
-      if (dist(px, py, shot2Px.x, shot2Px.y) < r) return "shot2";
-      if (dist(px, py, shot3Px.x, shot3Px.y) < r) return "shot3";
-      if (dist(px, py, shot4Px.x, shot4Px.y) < r) return "shot4";
-      return null;
-    }
-    courtToPxRef.current = courtToPx;
-    pxToCourtRef.current = pxToCourt;
-    hitTestHandlesRef.current = hitTestHandles;
-    // Store latest anchors in ref for dragging
-    anchorsRef.current = {
-      pxTopLeft,
-      pxTopRight,
-      pxBotLeft,
-      pxBotRight,
-      drawWidth,
-      drawHeight,
-      offsetX,
-      offsetY,
-      courtToPx,
-      pxToCourt,
-    };
-    // === ANCHOR DEBUG LOG ===
-    // console.log('Anchor debug', {
-    //   pxTopLeft, pxTopRight, pxBotLeft, pxBotRight,
-    //   leftSinglesX, rightSinglesX, topY, botY,
-    //   BG_SIZE,
-    //   drawWidth, drawHeight, offsetX, offsetY,
-    //   orientation: courtOrientation
-    // });
-    // === END ANCHOR DEBUG ===
-    return anchorsRef.current;
-  }
-
-  // ... (rest of the code remains the same)
-
-  function handlePointerMove(e: React.PointerEvent) {
-    if (!dragging || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    // console.log('Canvas debug', {
-    //   canvasWidth: canvas.width,
-    //   canvasHeight: canvas.height,
-    //   cssWidth: rect.width,
-    //   cssHeight: rect.height,
-    //   scaleX, scaleY
-    // });
-    const px = (e.clientX - rect.left) * scaleX;
-    const py = (e.clientY - rect.top) * scaleY;
-    if (!anchorsRef.current || !anchorsRef.current.pxToCourt) return;
-    // Subtract offsetX/offsetY to get px/py relative to drawn court
-    const pxInCourt = px - anchorsRef.current.offsetX;
-    const pyInCourt = py - anchorsRef.current.offsetY;
-    const { x: courtX, y: courtY } = anchorsRef.current.pxToCourt({
-      px: pxInCourt,
-      py: pyInCourt,
-    });
-
-    if (anchorsRef.current) {
-      let bgLogicalLeft, bgLogicalRight, bgLogicalTop, bgLogicalBottom;
-      if (courtOrientation === "portrait") {
-        bgLogicalLeft = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).x;
-        bgLogicalRight = anchorsRef.current.pxToCourt({
-          px: anchorsRef.current.drawWidth,
-          py: 0,
-        }).x;
-        bgLogicalTop = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).y;
-        bgLogicalBottom = anchorsRef.current.pxToCourt({
-          px: 0,
-          py: anchorsRef.current.drawHeight,
-        }).y;
-      } else {
-        // Landscape: axes are swapped
-        const leftX = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).x;
-        const rightX = anchorsRef.current.pxToCourt({
-          px: 0,
-          py: anchorsRef.current.drawHeight,
-        }).x;
-        bgLogicalLeft = Math.min(leftX, rightX);
-        bgLogicalRight = Math.max(leftX, rightX);
-        const topY = anchorsRef.current.pxToCourt({ px: 0, py: 0 }).y;
-        const bottomY = anchorsRef.current.pxToCourt({
-          px: anchorsRef.current.drawWidth,
-          py: 0,
-        }).y;
-        bgLogicalTop = Math.min(topY, bottomY);
-        bgLogicalBottom = Math.max(topY, bottomY);
-      }
-
-      // console.log("[DRAG LOGIC] Player1 drag", {
-      //   orientation: courtOrientation,
-      //   bgLogicalLeft,
-      //   bgLogicalRight,
-      //   bgLogicalTop,
-      //   bgLogicalBottom,
-      //   courtX,
-      //   courtY,
-      //   clampX: clamp(courtX, bgLogicalLeft, bgLogicalRight),
-      //   clampY: clamp(courtY, bgLogicalTop, NET_Y),
-      // });
-      if (dragging === "player1") {
-        setPlayer1({
-          x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
-          y: clamp(courtY, bgLogicalTop, NET_Y),
-        });
-        setHasMovedPlayer1(true);
-      } else if (dragging === "player2") {
-        setPlayer2({
-          x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
-          y: clamp(courtY, NET_Y, bgLogicalBottom),
-        });
-        setHasMovedPlayer2(true);
-      } else if (dragging === "shot1") {
-        setShot1({ x: courtX, y: courtY });
-      } else if (dragging === "shot2") {
-        setShot2({ x: courtX, y: courtY });
-      } else if (dragging === "shot3") {
-        setShot3({ x: courtX, y: courtY });
-      } else if (dragging === "shot4") {
-        setShot4({ x: courtX, y: courtY });
-      }
-    }
-  }
-
-  // --- Cursor feedback for draggable handles ---
-  function handleMouseMove(e: React.MouseEvent) {
-    if (!anchorsRef.current) return;
-    const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
-    const scaleX = canvasRef.current!.width / rect.width;
-    const scaleY = canvasRef.current!.height / rect.height;
-    const px = (e.clientX - rect.left) * scaleX;
-    const py = (e.clientY - rect.top) * scaleY;
-    // Pass full canvas px/py to hitTestHandles
-    const hit = hitTestHandlesRef.current
-      ? hitTestHandlesRef.current(px, py)
-      : null;
-    if (canvasRef.current) {
-      canvasRef.current.style.cursor = hit ? "pointer" : "default";
-    }
-  }
-
-  // --- Draw court and players ---
-  function drawCourtAndPlayers(
-    ctx: CanvasRenderingContext2D,
-    anchors: any,
-    bgImg: any
-  ) {
-    // --- DEBUG: Log anchor box and logical-to-pixel mapping for key points ---
-    if (anchors && courtOrientation === "landscape") {
-      const { courtToPx } = anchors;
-      const logPx = (label: string, logical: { x: number; y: number }) => {
-        const px = courtToPx(logical);
-        // console.log(`[DEBUG MAP] ${label} logical:`, logical, 'pixel:', px);
-      };
-      logPx("Player1", { x: singlesCenterX, y: COURT_LENGTH });
-      logPx("Player2", { x: singlesCenterX, y: 0 });
-      logPx("Shot1", { x: leftSinglesX, y: 0 });
-      logPx("Shot2", { x: rightSinglesX, y: 0 });
-      logPx("Court Top-Left", { x: leftSinglesX, y: 0 });
-      logPx("Court Top-Right", { x: rightSinglesX, y: 0 });
-      logPx("Court Bottom-Left", { x: leftSinglesX, y: COURT_LENGTH });
-      logPx("Court Bottom-Right", { x: rightSinglesX, y: COURT_LENGTH });
-    }
-    const { drawWidth, drawHeight, offsetX, offsetY, courtToPx } = anchors;
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    if (bgImg) {
-      ctx.drawImage(bgImg, offsetX, offsetY, drawWidth, drawHeight);
-    }
-    const player1Px = courtToPx({ x: player1.x, y: player1.y });
-    let swing: "forehand" | "backhand";
-    if (player1Swing === "auto") {
-      swing = resolvePlayer1Swing(player1, player1Handedness, courtOrientation);
-    } else {
-      swing = player1Swing;
-    }
-    const theta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness: player1Handedness,
-      swing,
-    });
-    const armPx = ARM_RACKET_LENGTH;
-
-    const player2Px = courtToPx({ x: player2.x, y: player2.y });
-    const shot1Px = courtToPx({ x: shot1.x, y: shot1.y });
-    const shot2Px = courtToPx({ x: shot2.x, y: shot2.y });
-    const shot3Px = courtToPx({ x: shot3.x, y: shot3.y });
-    const shot4Px = courtToPx({ x: shot4.x, y: shot4.y });
-
-    // Calculate pxPerMeter first
-    let pxPerMeter: number;
-    if (courtOrientation === "portrait") {
-      pxPerMeter = Math.sqrt(
-        (courtToPx({ x: player1.x + 1, y: player1.y }).x - player1Px.x) ** 2 +
-          (courtToPx({ x: player1.x, y: player1.y + 1 }).y - player1Px.y) ** 2
+    if (bisectorResult.optimalP2) {
+      const dist = Math.hypot(
+        courtState.player2.x - bisectorResult.optimalP2.x,
+        courtState.player2.y - bisectorResult.optimalP2.y
       );
-    } else {
-      // In landscape, x+1 is vertical, y+1 is horizontal
-      pxPerMeter = Math.sqrt(
-        (courtToPx({ x: player1.x, y: player1.y + 1 }).x - player1Px.x) ** 2 +
-          (courtToPx({ x: player1.x + 1, y: player1.y }).y - player1Px.y) ** 2
-      );
+
+      if (dist < 0.5) {
+        courtState.setFeedback("You win! 🎾");
+      } else {
+        courtState.setFeedback("You lose, try again or ask for the solution.");
+      }
     }
+  };
 
-    // Calculate player1's contact point using shared helper
-    const player1ContactPoint = getContactPoint(
-      player1,
-      player1Handedness,
-      swing,
-      true
-    );
+  const handleShowSolution = () => {
+    courtState.setShowAngles(true);
+    courtState.setShowOptimal(true);
+  };
 
-    // Full arm length for visual drawing
-    const fullArmPxPlayer1 = ARM_RACKET_LENGTH * pxPerMeter;
-    const visualArmEndPxPlayer1 = {
-      x: player1Px.x + fullArmPxPlayer1 * Math.cos(theta),
-      y: player1Px.y + fullArmPxPlayer1 * Math.sin(theta),
-    };
-
-    // Use contact point for shots/bisector - convert to pixels for overlay
-    const player1ArmExtPxForOverlay = courtToPx({
-      x: player1ContactPoint.x,
-      y: player1ContactPoint.y,
-    });
-
-    // Calculate player2's contact point using shared helper
-    const resolvedPlayer2Swing =
-      player2Swing === "auto"
-        ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
-        : player2Swing;
-    const player2ArmTheta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness: player2Handedness,
-      swing: resolvedPlayer2Swing,
-      isPlayer1: false,
-    });
-
-    const player2ContactPoint = getContactPoint(
-      player2,
-      player2Handedness,
-      resolvedPlayer2Swing,
-      false
-    );
-
-    // Full arm length for visual drawing
-    const fullArmPxPlayer2 = ARM_RACKET_LENGTH * pxPerMeter;
-    const visualArmEndPxPlayer2 = {
-      x: player2Px.x + fullArmPxPlayer2 * Math.cos(player2ArmTheta),
-      y: player2Px.y + fullArmPxPlayer2 * Math.sin(player2ArmTheta),
-    };
-
-    // Use contact point for shots/bisector - convert to pixels for overlay
-    const player2ArmExtPxForOverlay = courtToPx({
-      x: player2ContactPoint.x,
-      y: player2ContactPoint.y,
-    });
-
-    // DEBUG: Log Player 2 drawing contact point calculation
-    // console.log("[PLAYER 2 DRAWING CONTACT DEBUG]", {
-    //   player2Position: player2,
-    //   handedness: player2Handedness,
-    //   swing: resolvedPlayer2Swing,
-    //   theta: player2ArmTheta,
-    //   thetaDegrees: (player2ArmTheta * 180) / Math.PI,
-    //   armLength: ARM_RACKET_LENGTH,
-    //   contactRatio: CONTACT_POINT_RATIO,
-    //   contactPoint: player2ContactPoint,
-    //   contactPointPx: player2ArmExtPxForOverlay,
-    //   deltaFromPlayer: {
-    //     x: player2ContactPoint.x - player2.x,
-    //     y: player2ContactPoint.y - player2.y,
-    //   },
-    //   courtOrientation: courtOrientation,
-    //   // Additional debug: what should the contact point be?
-    //   expectedContactDelta: {
-    //     x: ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(player2ArmTheta),
-    //     y: ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(player2ArmTheta),
-    //   },
-    //   actualContactDelta: {
-    //     x: player2ContactPoint.x - player2.x,
-    //     y: player2ContactPoint.y - player2.y,
-    //   },
-    // });
-
-    // Player 1 shots
-    if (showShotsPlayer1) {
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
-      ctx.lineTo(shot1Px.x, shot1Px.y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
-      ctx.lineTo(shot2Px.x, shot2Px.y);
-      ctx.stroke();
-    }
-
-    // Player 1 bisector
-    if (showBisectorPlayer1) {
-      ctx.strokeStyle = "orange";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(player1ArmExtPxForOverlay.x, player1ArmExtPxForOverlay.y);
-      const { bisectorEndPx } = getBisectorAndP2(player1ArmExtPxForOverlay);
-      ctx.lineTo(bisectorEndPx.x, bisectorEndPx.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Player 2 shots
-    if (showShotsPlayer2) {
-      ctx.strokeStyle = "green";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(player2ArmExtPxForOverlay.x, player2ArmExtPxForOverlay.y);
-      ctx.lineTo(shot3Px.x, shot3Px.y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(player2ArmExtPxForOverlay.x, player2ArmExtPxForOverlay.y);
-      ctx.lineTo(shot4Px.x, shot4Px.y);
-      ctx.stroke();
-    }
-
-    // Player 2 bisector
-    if (showBisectorPlayer2) {
-      ctx.strokeStyle = "cyan";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(player2ArmExtPxForOverlay.x, player2ArmExtPxForOverlay.y);
-      // Pass the exact same contact point used for drawing to ensure consistency
-
-      const { bisectorEndPx: bisectorEndPxP2 } = getBisectorAndP1();
-      ctx.lineTo(bisectorEndPxP2.x, bisectorEndPxP2.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    drawPlayerHandle({
-      ctx,
-      x: player1Px.x,
-      y: player1Px.y,
-      color: "blue",
-      handedness: player1Handedness,
-      scale: pxPerMeter,
-      swing,
-      isPlayer1: true,
-      orientation: courtOrientation,
-    });
-    drawPlayerHandle({
-      ctx,
-      x: player2Px.x,
-      y: player2Px.y,
-      color: "purple",
-      handedness: player2Handedness,
-      scale: pxPerMeter,
-      swing: resolvedPlayer2Swing,
-      isPlayer1: false,
-      orientation: courtOrientation,
-    });
-
-    // Draw rackets at the end of arms for both players
-    function drawRacket(
-      ctx: CanvasRenderingContext2D,
-      armEndPx: { x: number; y: number },
-      theta: number,
-      color: string,
-      swing: "forehand" | "backhand"
-    ) {
-      const racketLength = 20; // Length of racket head in pixels
-      const racketWidth = 12; // Width of racket head in pixels
-
-      // Position racket center back along arm direction by half racket length
-      const racketCenterX = armEndPx.x - (racketLength / 2) * Math.cos(theta);
-      const racketCenterY = armEndPx.y - (racketLength / 2) * Math.sin(theta);
-
-      ctx.save();
-      ctx.translate(racketCenterX, racketCenterY);
-
-      // Racket orientation: aligned with arm direction
-      ctx.rotate(theta);
-
-      // Draw racket head as ellipse (longer axis along arm direction)
-      ctx.beginPath();
-      ctx.ellipse(0, 0, racketLength / 2, racketWidth / 2, 0, 0, 2 * Math.PI);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Fill with semi-transparent color
-      ctx.fillStyle = color;
-      ctx.globalAlpha = 0.3;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-
-      ctx.restore();
-    }
-
-    // Draw Player 1 racket
-    drawRacket(ctx, visualArmEndPxPlayer1, theta, "blue", swing);
-
-    // Draw Player 2 racket
-    drawRacket(
-      ctx,
-      visualArmEndPxPlayer2,
-      player2ArmTheta,
-      "purple",
-      resolvedPlayer2Swing
-    );
-    if (showShotsPlayer1) {
-      drawShotHandle(ctx, shot1Px.x, shot1Px.y, "red");
-      drawShotHandle(ctx, shot2Px.x, shot2Px.y, "red");
-    }
-    if (showShotsPlayer2) {
-      drawShotHandle(ctx, shot3Px.x, shot3Px.y, "green");
-      drawShotHandle(ctx, shot4Px.x, shot4Px.y, "green");
-    }
-
-    // Show optimal positions
-    if (showOptimal) {
-      const { optimalP2Px } = getBisectorAndP2();
-      const { optimalP1Px } = getBisectorAndP1();
-
-      // Draw optimal P2 position (for Player 1's shots)
-      ctx.save();
-      ctx.strokeStyle = "#fbbf24"; // amber-400
-      ctx.fillStyle = "rgba(251, 191, 36, 0.2)";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.arc(optimalP2Px.x, optimalP2Px.y, 20, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Add label
-      ctx.fillStyle = "#92400e";
-      ctx.font = "bold 12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Optimal P2", optimalP2Px.x, optimalP2Px.y - 25);
-
-      // Draw optimal P1 position (for Player 2's shots)
-      ctx.strokeStyle = "#10b981"; // emerald-500
-      ctx.fillStyle = "rgba(16, 185, 129, 0.2)";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.arc(optimalP1Px.x, optimalP1Px.y, 20, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Add label
-      ctx.fillStyle = "#047857";
-      ctx.font = "bold 12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Optimal P1", optimalP1Px.x, optimalP1Px.y - 25);
-
-      ctx.restore();
-    }
-
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.fillStyle = "lime";
-    ctx.beginPath();
-    ctx.arc(player1Px.x, player1Px.y, 4, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(player2Px.x, player2Px.y, 4, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(shot1Px.x, shot1Px.y, 4, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(shot2Px.x, shot2Px.y, 4, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function handlePointerDown(e: React.PointerEvent) {
-    if (!hitTestHandlesRef.current || !canvasRef.current || !anchorsRef.current)
-      return;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const px = (e.clientX - rect.left) * scaleX;
-    const py = (e.clientY - rect.top) * scaleY;
-    // Pass full canvas px/py to hitTestHandles
-    const hit = hitTestHandlesRef.current(px, py);
-    setDragging(hit);
-  }
-
-  function handlePointerUp(e: React.PointerEvent) {
-    setDragging(null);
-  }
-
-  useEffect(() => {
-    // Use the same helpers as the main effect for transforms and drawing
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const anchors = setupCourtTransformsAndAnchors({
-      canvasW: canvasSize.width,
-      canvasH: canvasSize.height,
-      BG_SIZE,
-      courtOrientation,
-      logicalToDisplay,
-      displayToLogical,
-      courtToPxRef,
-      pxToCourtRef,
-      hitTestHandlesRef,
-    });
-    drawCourtAndPlayers(ctx, anchors, bgImg);
-  }, [
-    player1,
-    player2,
-    shot1,
-    shot2,
-    shot3,
-    shot4,
-    showShotsPlayer1,
-    showShotsPlayer2,
-    showBisectorPlayer1,
-    showBisectorPlayer2,
-    showOptimal,
-    canvasSize,
-    bgImg,
-    bgLoaded,
-    player1Handedness,
-    player2Handedness,
-    player1Swing,
-    player2Swing,
-  ]);
-
-  // --- Calculate shot/angle info (needed in return) ---
-  const vDownLine = { x: shot1.x - player1.x, y: shot1.y - player1.y };
-  const vCross = { x: shot2.x - player1.x, y: shot2.y - player1.y };
-  const vP2 = { x: player2.x - player1.x, y: player2.y - player1.y };
-  const lenDownLine = Math.hypot(vDownLine.x, vDownLine.y);
-  const lenCross = Math.hypot(vCross.x, vCross.y);
-  const lenP2 = Math.hypot(vP2.x, vP2.y);
-
-  const { bisectorEndPx, optimalP2 } = getBisectorAndP2();
-  const lenBisector = Math.hypot(
-    optimalP2.x - player1.x,
-    optimalP2.y - player1.y
+  // Calculate shot/angle info for stats panel
+  const { vDownLine, vCross, lenDownLine, lenCross } = calculateShotVectors(
+    courtState.player1,
+    courtState.shot1,
+    courtState.shot2
   );
-  // Angle between shots (in degrees)
-  function getAngleDeg(
-    v1: { x: number; y: number },
-    v2: { x: number; y: number }
-  ) {
-    const dot = v1.x * v2.x + v1.y * v2.y;
-    const l1 = Math.hypot(v1.x, v1.y);
-    const l2 = Math.hypot(v2.x, v2.y);
-    const cos = dot / (l1 * l2);
-    return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
-  }
+
+  const lenP2 = calculatePlayerDistance(courtState.player1, courtState.player2);
   const angleDeg = getAngleDeg(vDownLine, vCross);
 
-  // Tailwind + SCSS modules: all controls and info panel use className, not inline style
+  // Calculate bisector length for stats
+  const resolvedPlayer1Swing =
+    courtState.player1Swing === "auto"
+      ? resolvePlayerSwing(
+          courtState.player1,
+          courtState.player1Handedness,
+          courtState.courtOrientation,
+          true,
+          courtState.prevPlayer1Swing
+        )
+      : courtState.player1Swing;
+
+  const player1Contact = getContactPoint(
+    courtState.player1,
+    courtState.player1Handedness,
+    resolvedPlayer1Swing,
+    true,
+    courtState.courtOrientation,
+    courtToPxRef.current,
+    pxToCourtRef.current
+  );
+
+  const bisectorResult = courtToPxRef.current
+    ? calculateBisector(
+        player1Contact,
+        courtState.shot1,
+        courtState.shot2,
+        courtToPxRef.current,
+        BG_SIZES[courtState.courtOrientation],
+        courtState.courtOrientation,
+        COURT_LENGTH
+      )
+    : null;
+
+  const lenBisector = bisectorResult?.optimalP2
+    ? Math.hypot(
+        bisectorResult.optimalP2.x - courtState.player1.x,
+        bisectorResult.optimalP2.y - courtState.player1.y
+      )
+    : 0;
+
   return (
     <div className={tcStyles.pageRoot}>
       <div className={tcStyles.sidePanel}>
         <div className={tcStyles.topBar}>Tennis Angle Theory</div>
-        <div className={tcStyles.topControls}>
-          <div style={{ marginBottom: 12 }}>
-            <label
-              htmlFor="courtOrientationSelect"
-              style={{ fontWeight: "bold", marginRight: 8 }}
-            >
-              Orientation:
-            </label>
-            <select
-              id="courtOrientationSelect"
-              value={courtOrientation}
-              onChange={(e) =>
-                setCourtOrientation(e.target.value as CourtOrientation)
-              }
-              className={tcStyles.smallSelect}
-            >
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
-            </select>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label
-              htmlFor="courtTypeSelect"
-              style={{ fontWeight: "bold", marginRight: 8 }}
-            >
-              Court type:
-            </label>
-            <select
-              id="courtTypeSelect"
-              value={courtType}
-              onChange={(e) => setCourtType(e.target.value as CourtType)}
-              className={tcStyles.smallSelect}
-            >
-              <option value="clay">Clay</option>
-              <option value="hard">Hard</option>
-              <option value="grass">Grass</option>
-            </select>
-          </div>
-          <div className={tcStyles.controlsPanel}>
-            <div className={tcStyles.controlSection}>
-              <h4 className={tcStyles.controlSectionTitle}>Player 1 Display</h4>
-              <div className={tcStyles.checkboxGroup}>
-                <label className={tcStyles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showShotsPlayer1}
-                    onChange={(e) => setShowShotsPlayer1(e.target.checked)}
-                    className={tcStyles.checkbox}
-                  />
-                  <span className={tcStyles.checkboxText}>P1 shots</span>
-                </label>
-                <label className={tcStyles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showBisectorPlayer1}
-                    onChange={(e) => setShowBisectorPlayer1(e.target.checked)}
-                    className={tcStyles.checkbox}
-                  />
-                  <span className={tcStyles.checkboxText}>P1 bisector</span>
-                </label>
-              </div>
-            </div>
 
-            <div className={tcStyles.controlSection}>
-              <h4 className={tcStyles.controlSectionTitle}>Player 2 Display</h4>
-              <div className={tcStyles.checkboxGroup}>
-                <label className={tcStyles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showShotsPlayer2}
-                    onChange={(e) => setShowShotsPlayer2(e.target.checked)}
-                    className={tcStyles.checkbox}
-                  />
-                  <span className={tcStyles.checkboxText}>P2 shots</span>
-                </label>
-                <label className={tcStyles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showBisectorPlayer2}
-                    onChange={(e) => setShowBisectorPlayer2(e.target.checked)}
-                    className={tcStyles.checkbox}
-                  />
-                  <span className={tcStyles.checkboxText}>P2 bisector</span>
-                </label>
-              </div>
-            </div>
+        <CourtControls
+          courtOrientation={courtState.courtOrientation}
+          setCourtOrientation={courtState.setCourtOrientation}
+          courtType={courtState.courtType}
+          setCourtType={courtState.setCourtType}
+          showShotsPlayer1={courtState.showShotsPlayer1}
+          setShowShotsPlayer1={courtState.setShowShotsPlayer1}
+          showBisectorPlayer1={courtState.showBisectorPlayer1}
+          setShowBisectorPlayer1={courtState.setShowBisectorPlayer1}
+          showShotsPlayer2={courtState.showShotsPlayer2}
+          setShowShotsPlayer2={courtState.setShowShotsPlayer2}
+          showBisectorPlayer2={courtState.showBisectorPlayer2}
+          setShowBisectorPlayer2={courtState.setShowBisectorPlayer2}
+          showOptimal={courtState.showOptimal}
+          setShowOptimal={courtState.setShowOptimal}
+          player1Handedness={courtState.player1Handedness}
+          setPlayer1Handedness={courtState.setPlayer1Handedness}
+          player1Swing={courtState.player1Swing}
+          setPlayer1Swing={courtState.setPlayer1Swing}
+          player2Handedness={courtState.player2Handedness}
+          setPlayer2Handedness={courtState.setPlayer2Handedness}
+          player2Swing={courtState.player2Swing}
+          setPlayer2Swing={courtState.setPlayer2Swing}
+          setHasMovedPlayer1={courtState.setHasMovedPlayer1}
+          setHasMovedPlayer2={courtState.setHasMovedPlayer2}
+          feedback={courtState.feedback}
+          setFeedback={courtState.setFeedback}
+          setShowAngles={courtState.setShowAngles}
+          onCheckPosition={handleCheckPosition}
+          onShowSolution={handleShowSolution}
+        />
 
-            <div className={tcStyles.controlSection}>
-              <h4 className={tcStyles.controlSectionTitle}>Other</h4>
-              <div className={tcStyles.checkboxGroup}>
-                <label className={tcStyles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={showOptimal}
-                    onChange={(e) => setShowOptimal(e.target.checked)}
-                    className={tcStyles.checkbox}
-                  />
-                  <span className={tcStyles.checkboxText}>
-                    Optimal positions
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <div className={tcStyles.controlSection}>
-              <h4 className={tcStyles.controlSectionTitle}>Player Settings</h4>
-              <div className={tcStyles.playerControls}>
-                <label className={tcStyles.selectLabel}>
-                  <span className={tcStyles.selectText}>P1 Hand:</span>
-                  <select
-                    value={player1Handedness}
-                    onChange={(e) => {
-                      setPlayer1Handedness(e.target.value as "right" | "left");
-                      setHasMovedPlayer1((v) => !v);
-                    }}
-                    className={tcStyles.smallSelect}
-                  >
-                    <option value="right">Right</option>
-                    <option value="left">Left</option>
-                  </select>
-                </label>
-                <label className={tcStyles.selectLabel}>
-                  <span className={tcStyles.selectText}>P1 Swing:</span>
-                  <select
-                    value={player1Swing}
-                    onChange={(e) => {
-                      setPlayer1Swing(
-                        e.target.value as "auto" | "forehand" | "backhand"
-                      );
-                      setHasMovedPlayer1((v) => !v);
-                    }}
-                    className={tcStyles.smallSelect}
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="forehand">Forehand</option>
-                    <option value="backhand">Backhand</option>
-                  </select>
-                </label>
-                <label className={tcStyles.selectLabel}>
-                  <span className={tcStyles.selectText}>P2 Hand:</span>
-                  <select
-                    value={player2Handedness}
-                    onChange={(e) => {
-                      setPlayer2Handedness(e.target.value as "right" | "left");
-                      setHasMovedPlayer2((v) => !v);
-                    }}
-                    className={tcStyles.smallSelect}
-                  >
-                    <option value="right">Right</option>
-                    <option value="left">Left</option>
-                  </select>
-                </label>
-                <label className={tcStyles.selectLabel}>
-                  <span className={tcStyles.selectText}>P2 Swing:</span>
-                  <select
-                    value={player2Swing}
-                    onChange={(e) => {
-                      setPlayer2Swing(
-                        e.target.value as "auto" | "forehand" | "backhand"
-                      );
-                      setHasMovedPlayer2((v) => !v);
-                    }}
-                    className={tcStyles.smallSelect}
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="forehand">Forehand</option>
-                    <option value="backhand">Backhand</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className={tcStyles.controlSection}>
-              <h4 className={tcStyles.controlSectionTitle}>Game</h4>
-              <div className={tcStyles.gameControls}>
-                <button
-                  className={tcStyles.gameButton}
-                  onClick={() => {
-                    // Guess logic: is player2 on bisector?
-                    const bisectorResult = getBisectorAndP2();
-                    const dist = Math.hypot(
-                      player2.x - bisectorResult.optimalP2.x,
-                      player2.y - bisectorResult.optimalP2.y
-                    );
-                    if (dist < 0.5) setFeedback("You win! 🎾");
-                    else
-                      setFeedback(
-                        "You lose, try again or ask for the solution."
-                      );
-                  }}
-                >
-                  🎯 Check Position
-                </button>
-                <button
-                  className={tcStyles.gameButton}
-                  onClick={() => {
-                    setShowAngles(true);
-                    setShowOptimal(true);
-                  }}
-                >
-                  💡 Show Solution
-                </button>
-              </div>
-              {feedback && <div className={tcStyles.feedback}>{feedback}</div>}
-            </div>
-          </div>
-        </div>
         <div className={tcStyles.sidebarBottom}>
           <button
             className={tcStyles.statsToggleBtn}
-            onClick={() => setShowStatsPanel((v: boolean) => !v)}
+            onClick={() =>
+              courtState.setShowStatsPanel(!courtState.showStatsPanel)
+            }
             type="button"
           >
-            {showStatsPanel ? "Hide stats" : "Show stats"}
+            {courtState.showStatsPanel ? "Hide stats" : "Show stats"}
           </button>
-          {showStatsPanel && (
+          {courtState.showStatsPanel && (
             <ShotInfoPanel
               lenDownLine={lenDownLine}
               lenCross={lenCross}
@@ -1953,29 +360,65 @@ const TennisCourt: React.FC = () => {
           )}
         </div>
       </div>
+
       <div ref={containerRef} className={tcStyles.courtContainer}>
-        <canvas
-          ref={canvasRef}
-          width={canvasSize.width}
-          height={canvasSize.height}
-          className={
-            `${tcStyles.courtCanvas} ` +
-            (courtOrientation === "portrait"
-              ? tcStyles.courtCanvasPortrait
-              : tcStyles.courtCanvasLandscape)
+        <CourtCanvas
+          player1={courtState.player1}
+          player2={courtState.player2}
+          shot1={courtState.shot1}
+          shot2={courtState.shot2}
+          shot3={courtState.shot3}
+          shot4={courtState.shot4}
+          courtOrientation={courtState.courtOrientation}
+          courtType={courtState.courtType}
+          player1Handedness={courtState.player1Handedness}
+          player1Swing={courtState.player1Swing}
+          player2Handedness={courtState.player2Handedness}
+          player2Swing={courtState.player2Swing}
+          prevPlayer1Swing={courtState.prevPlayer1Swing}
+          prevPlayer2Swing={courtState.prevPlayer2Swing}
+          showShotsPlayer1={courtState.showShotsPlayer1}
+          showShotsPlayer2={courtState.showShotsPlayer2}
+          showBisectorPlayer1={courtState.showBisectorPlayer1}
+          showBisectorPlayer2={courtState.showBisectorPlayer2}
+          showOptimal={courtState.showOptimal}
+          canvasSize={canvasSize}
+          onPointerDown={(e) =>
+            dragHandling.handlePointerDown(
+              e,
+              { current: e.currentTarget as HTMLCanvasElement },
+              hitTestHandlesRef.current
+            )
           }
-          tabIndex={0}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onMouseMove={handleMouseMove}
-          onDoubleClick={handlePlayer1DoubleClickCanvas}
+          onPointerMove={(e) =>
+            dragHandling.handlePointerMove(
+              e,
+              { current: e.currentTarget as HTMLCanvasElement },
+              courtState.courtOrientation,
+              {
+                setPlayer1: courtState.setPlayer1,
+                setPlayer2: courtState.setPlayer2,
+                setShot1: courtState.setShot1,
+                setShot2: courtState.setShot2,
+                setShot3: courtState.setShot3,
+                setShot4: courtState.setShot4,
+                setHasMovedPlayer1: courtState.setHasMovedPlayer1,
+                setHasMovedPlayer2: courtState.setHasMovedPlayer2,
+              }
+            )
+          }
+          onPointerUp={dragHandling.handlePointerUp}
+          onMouseMove={(e) =>
+            dragHandling.handleMouseMove(
+              e,
+              { current: e.currentTarget as HTMLCanvasElement },
+              hitTestHandlesRef.current
+            )
+          }
+          onDoubleClick={handlePlayer1DoubleClick}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          aria-label="Tennis court simulation"
-          title={`Player 1: ${player1Handedness} (${
-            player1Swing === "auto" ? "auto" : player1Swing
-          })\nDouble-click or long-press to toggle swing`}
+          onTransformsReady={handleTransformsReady}
         />
       </div>
     </div>

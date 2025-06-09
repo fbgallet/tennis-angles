@@ -1,5 +1,5 @@
 # Tennis angles simulator
 
-Vibe coding experiment (my first one) from Windsurf AI, with gpt-4.1, using React + Typescript
+Vibe coding experiment (my first big one) in React + Typescript, initialy using Windsurf AI + gpt-4.1, then switching to Cline + Claude Sonnet 4.
 
-The idea is to simulate the angles of a tennis shot, based on the position of the player and the ball.
+The idea is to simulate the theory of angles of René Cochet, easily visualizing where are the best placement and replacement positions.
