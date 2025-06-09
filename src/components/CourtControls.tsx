@@ -72,42 +72,37 @@ const CourtControls: React.FC<CourtControlsProps> = ({
 }) => {
   return (
     <div className={tcStyles.topControls}>
-      <div style={{ marginBottom: 12 }}>
-        <label
-          htmlFor="courtOrientationSelect"
-          style={{ fontWeight: "bold", marginRight: 8 }}
-        >
-          Orientation:
-        </label>
-        <select
-          id="courtOrientationSelect"
-          value={courtOrientation}
-          onChange={(e) =>
-            setCourtOrientation(e.target.value as CourtOrientation)
-          }
-          className={tcStyles.smallSelect}
-        >
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
-        </select>
-      </div>
-      <div style={{ marginBottom: 12 }}>
-        <label
-          htmlFor="courtTypeSelect"
-          style={{ fontWeight: "bold", marginRight: 8 }}
-        >
-          Court type:
-        </label>
-        <select
-          id="courtTypeSelect"
-          value={courtType}
-          onChange={(e) => setCourtType(e.target.value as CourtType)}
-          className={tcStyles.smallSelect}
-        >
-          <option value="clay">Clay</option>
-          <option value="hard">Hard</option>
-          <option value="grass">Grass</option>
-        </select>
+      <div className={tcStyles.controlSection}>
+        <h4 className={tcStyles.controlSectionTitle}>Court Settings</h4>
+        <div className={tcStyles.compactRow}>
+          <label className={tcStyles.selectLabel}>
+            <span className={tcStyles.selectText}>Orientation:</span>
+            <select
+              value={courtOrientation}
+              onChange={(e) =>
+                setCourtOrientation(e.target.value as CourtOrientation)
+              }
+              className={tcStyles.smallSelect}
+            >
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </label>
+        </div>
+        <div className={tcStyles.compactRow}>
+          <label className={tcStyles.selectLabel}>
+            <span className={tcStyles.selectText}>Court type:</span>
+            <select
+              value={courtType}
+              onChange={(e) => setCourtType(e.target.value as CourtType)}
+              className={tcStyles.smallSelect}
+            >
+              <option value="clay">Clay</option>
+              <option value="hard">Hard</option>
+              <option value="grass">Grass</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div className={tcStyles.controlsPanel}>
         <div className={tcStyles.controlSection}>

@@ -182,70 +182,27 @@
 .pageRoot {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 92vh;
   width: 100vw;
   min-height: 0;
   min-width: 0;
+  position: relative;
+  max-width: 1280px;
 }
+
 .topBar {
   flex: 0 0 auto;
   font-size: 1.25rem;
   font-weight: bold;
   letter-spacing: 0.03em;
   text-align: center;
-  margin-bottom: 0.5rem;
-  padding: 0.3rem 0;
+  padding: 0.75rem 0;
   background: #000;
   color: #fff;
+  position: relative;
+  z-index: 100;
 }
 
-.topControls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 8px;
-}
-
-@media (orientation: landscape) {
-  .pageRoot {
-    flex-direction: row;
-    align-items: stretch;
-    height: 100vh;
-    width: 100vw;
-    min-width: 0;
-    min-height: 0;
-  }
-  .sidePanel {
-    display: flex;
-    flex-direction: column;
-    width: 320px;
-    min-width: 220px;
-    max-width: 400px;
-    background: #000;
-    color: #fff;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.03);
-    z-index: 10;
-    height: 100vh;
-  }
-  .courtContainer {
-    flex: 1 1 0;
-    width: 100%;
-    height: 100vh;
-    min-width: 0;
-    min-height: 0;
-    max-width: 100vw;
-    max-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-}
-
-.topControls,
-.bottomControls {
-  flex: 0 0 auto;
-}
 .courtContainer {
   flex: 1 1 0;
   min-height: 0;
@@ -257,6 +214,60 @@
   justify-content: center;
   overflow: hidden;
   background: #000;
+  position: relative;
+}
+
+.statsOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.statsOverlay > * {
+  pointer-events: auto;
+}
+
+/* Landscape mode adjustments */
+@media (orientation: landscape) {
+  .pageRoot {
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .topBar {
+    padding: 0.5rem 0;
+    font-size: 1.125rem;
+  }
+
+  .courtContainer {
+    flex: 1 1 0;
+    width: 100%;
+    height: calc(100vh - 3rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+}
+
+/* Remove old side panel styles */
+.topControls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 8px;
+}
+
+.compactRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 .courtCanvas {
   width: auto;

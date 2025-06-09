@@ -19,12 +19,12 @@ export function useCourtState() {
   const [courtType, setCourtType] = useState<CourtType>("hard");
 
   // Display settings
-  const [showStatsPanel, setShowStatsPanel] = useState(true);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [showAngles, setShowAngles] = useState(false);
   const [showAnglesPlayer2, setShowAnglesPlayer2] = useState(false);
-  const [showShotsPlayer1, setShowShotsPlayer1] = useState(false);
+  const [showShotsPlayer1, setShowShotsPlayer1] = useState(true);
   const [showShotsPlayer2, setShowShotsPlayer2] = useState(false);
-  const [showBisectorPlayer1, setShowBisectorPlayer1] = useState(false);
+  const [showBisectorPlayer1, setShowBisectorPlayer1] = useState(true);
   const [showBisectorPlayer2, setShowBisectorPlayer2] = useState(false);
   const [showOptimal, setShowOptimal] = useState(false);
 

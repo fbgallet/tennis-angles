@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import ShotInfoPanel from "./ShotInfoPanel";
-import CourtControls from "./CourtControls";
+import BurgerMenu from "./BurgerMenu";
 import CourtCanvas from "./CourtCanvas";
 import { useCourtState } from "../hooks/useCourtState";
 import { useDragHandling } from "../hooks/useDragHandling";
@@ -302,65 +302,55 @@ const TennisCourt: React.FC = () => {
 
   return (
     <div className={tcStyles.pageRoot}>
-      <div className={tcStyles.sidePanel}>
-        <div className={tcStyles.topBar}>Tennis Angle Theory</div>
+      {/* Burger Menu */}
+      <BurgerMenu
+        courtOrientation={courtState.courtOrientation}
+        setCourtOrientation={courtState.setCourtOrientation}
+        courtType={courtState.courtType}
+        setCourtType={courtState.setCourtType}
+        showShotsPlayer1={courtState.showShotsPlayer1}
+        setShowShotsPlayer1={courtState.setShowShotsPlayer1}
+        showBisectorPlayer1={courtState.showBisectorPlayer1}
+        setShowBisectorPlayer1={courtState.setShowBisectorPlayer1}
+        showShotsPlayer2={courtState.showShotsPlayer2}
+        setShowShotsPlayer2={courtState.setShowShotsPlayer2}
+        showBisectorPlayer2={courtState.showBisectorPlayer2}
+        setShowBisectorPlayer2={courtState.setShowBisectorPlayer2}
+        showOptimal={courtState.showOptimal}
+        setShowOptimal={courtState.setShowOptimal}
+        player1Handedness={courtState.player1Handedness}
+        setPlayer1Handedness={courtState.setPlayer1Handedness}
+        player1Swing={courtState.player1Swing}
+        setPlayer1Swing={courtState.setPlayer1Swing}
+        player2Handedness={courtState.player2Handedness}
+        setPlayer2Handedness={courtState.setPlayer2Handedness}
+        player2Swing={courtState.player2Swing}
+        setPlayer2Swing={courtState.setPlayer2Swing}
+        setHasMovedPlayer1={courtState.setHasMovedPlayer1}
+        setHasMovedPlayer2={courtState.setHasMovedPlayer2}
+        feedback={courtState.feedback}
+        setFeedback={courtState.setFeedback}
+        setShowAngles={courtState.setShowAngles}
+        onCheckPosition={handleCheckPosition}
+        onShowSolution={handleShowSolution}
+        showStatsPanel={courtState.showStatsPanel}
+        setShowStatsPanel={courtState.setShowStatsPanel}
+      />
 
-        <CourtControls
-          courtOrientation={courtState.courtOrientation}
-          setCourtOrientation={courtState.setCourtOrientation}
-          courtType={courtState.courtType}
-          setCourtType={courtState.setCourtType}
-          showShotsPlayer1={courtState.showShotsPlayer1}
-          setShowShotsPlayer1={courtState.setShowShotsPlayer1}
-          showBisectorPlayer1={courtState.showBisectorPlayer1}
-          setShowBisectorPlayer1={courtState.setShowBisectorPlayer1}
-          showShotsPlayer2={courtState.showShotsPlayer2}
-          setShowShotsPlayer2={courtState.setShowShotsPlayer2}
-          showBisectorPlayer2={courtState.showBisectorPlayer2}
-          setShowBisectorPlayer2={courtState.setShowBisectorPlayer2}
-          showOptimal={courtState.showOptimal}
-          setShowOptimal={courtState.setShowOptimal}
-          player1Handedness={courtState.player1Handedness}
-          setPlayer1Handedness={courtState.setPlayer1Handedness}
-          player1Swing={courtState.player1Swing}
-          setPlayer1Swing={courtState.setPlayer1Swing}
-          player2Handedness={courtState.player2Handedness}
-          setPlayer2Handedness={courtState.setPlayer2Handedness}
-          player2Swing={courtState.player2Swing}
-          setPlayer2Swing={courtState.setPlayer2Swing}
-          setHasMovedPlayer1={courtState.setHasMovedPlayer1}
-          setHasMovedPlayer2={courtState.setHasMovedPlayer2}
-          feedback={courtState.feedback}
-          setFeedback={courtState.setFeedback}
-          setShowAngles={courtState.setShowAngles}
-          onCheckPosition={handleCheckPosition}
-          onShowSolution={handleShowSolution}
+      {/* Stats Panel Overlay - Always present but panel visibility controlled by state */}
+      <div className={tcStyles.statsOverlay}>
+        <ShotInfoPanel
+          lenDownLine={lenDownLine}
+          lenCross={lenCross}
+          lenBisector={lenBisector}
+          lenP2={lenP2}
+          angleDeg={angleDeg}
+          visible={courtState.showStatsPanel}
+          onClose={() => courtState.setShowStatsPanel(false)}
         />
-
-        <div className={tcStyles.sidebarBottom}>
-          <button
-            className={tcStyles.statsToggleBtn}
-            onClick={() =>
-              courtState.setShowStatsPanel(!courtState.showStatsPanel)
-            }
-            type="button"
-          >
-            {courtState.showStatsPanel ? "Hide stats" : "Show stats"}
-          </button>
-          {courtState.showStatsPanel && (
-            <ShotInfoPanel
-              lenDownLine={lenDownLine}
-              lenCross={lenCross}
-              lenBisector={lenBisector}
-              lenP2={lenP2}
-              angleDeg={angleDeg}
-              visible={true}
-              onClose={() => {}}
-            />
-          )}
-        </div>
       </div>
 
+      {/* Court Container */}
       <div ref={containerRef} className={tcStyles.courtContainer}>
         <CourtCanvas
           player1={courtState.player1}
