@@ -1,0 +1,50 @@
+.counter {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.counter:hover {
+  opacity: 0.7;
+}
+
+.text {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-weight: 400;
+  font-family: "Courier New", monospace;
+  background: var(--card);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  background-color: rgba(30, 41, 59, 0.8);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .counter {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .text {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.4rem;
+  }
+}
+
+/* Very subtle on small screens */
+@media (max-width: 480px) {
+  .counter {
+    opacity: 0.2;
+  }
+
+  .counter:hover {
+    opacity: 0.5;
+  }
+}
