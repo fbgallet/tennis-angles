@@ -108,7 +108,7 @@ import tcStyles from "./TennisCourt.module.scss";
 
 // Arm/racket drawing constants
 const ARM_RACKET_LENGTH = 1.105; // meters (approximate: arm+racquet, 30% longer)
-const CONTACT_POINT_RATIO = 0.92; // Contact point is 92% of the arm+racquet length (closer to racket end)
+const CONTACT_POINT_RATIO = 0.8; // Contact point is 92% of the arm+racquet length (closer to racket end)
 
 type CourtOrientation = "portrait" | "landscape";
 
@@ -249,36 +249,93 @@ const TennisCourt: React.FC = () => {
     ctx.stroke();
   }
 
-  // Helper functions to resolve swing based on position
+  // State to track previous swing for hysteresis
+  const [prevPlayer1Swing, setPrevPlayer1Swing] = useState<
+    "forehand" | "backhand"
+  >("forehand");
+  const [prevPlayer2Swing, setPrevPlayer2Swing] = useState<
+    "forehand" | "backhand"
+  >("forehand");
+
+  // Helper functions to resolve swing based on position with smooth transitions
   function resolvePlayer1Swing(
     player1: { x: number; y: number },
     handedness: "left" | "right",
     orientation: CourtOrientation
   ): "forehand" | "backhand" {
+    const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+
+    // Define transition zones with hysteresis
+    const TRANSITION_WIDTH = 0.25; // 25% transition zone
+    const CENTER = 0.4;
+
+    let result: "forehand" | "backhand";
+
     if (orientation === "landscape") {
-      // Landscape: rel is based on x (sideline-to-sideline)
-      // leftSinglesX (min x) to rightSinglesX (max x)
-      const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-      // Right-handed: forehand on left 2/3, backhand on right 1/3
-      // Left-handed: forehand on right 2/3, backhand on left 1/3
-      return handedness === "right"
-        ? rel < 1 / 3
-          ? "backhand"
-          : "forehand"
-        : rel > 2 / 3
-        ? "backhand"
-        : "forehand";
+      // Landscape logic with smooth transitions
+      if (handedness === "right") {
+        // Right-handed: forehand on right side, backhand on left side
+        const threshold = CENTER;
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "backhand";
+        } else if (rel > threshold + hysteresis) {
+          result = "forehand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer1Swing;
+        }
+      } else {
+        // Left-handed: opposite
+        const threshold = CENTER;
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "forehand";
+        } else if (rel > threshold + hysteresis) {
+          result = "backhand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer1Swing;
+        }
+      }
     } else {
-      // Portrait logic (example: based on y position)
-      const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-      return handedness === "right"
-        ? rel < 2 / 3
-          ? "forehand"
-          : "backhand"
-        : rel > 1 / 3
-        ? "forehand"
-        : "backhand";
+      // Portrait logic with smooth transitions
+      if (handedness === "right") {
+        const threshold = 0.6; // Slightly right of center
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "forehand";
+        } else if (rel > threshold + hysteresis) {
+          result = "backhand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer1Swing;
+        }
+      } else {
+        // Left-handed: opposite
+        const threshold = 0.4; // Slightly left of center
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "backhand";
+        } else if (rel > threshold + hysteresis) {
+          result = "forehand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer1Swing;
+        }
+      }
     }
+
+    // Update previous swing state
+    if (result !== prevPlayer1Swing) {
+      setPrevPlayer1Swing(result);
+    }
+
+    return result;
   }
 
   function resolvePlayer2Swing(
@@ -286,41 +343,158 @@ const TennisCourt: React.FC = () => {
     handedness: "left" | "right",
     orientation: CourtOrientation
   ): "forehand" | "backhand" {
+    const rel = (player2.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
+
+    // Define transition zones with hysteresis
+    const TRANSITION_WIDTH = 0.25; // 25% transition zone
+    const CENTER = 0.6;
+
+    let result: "forehand" | "backhand";
+
     if (orientation === "landscape") {
-      // Landscape: rel is based on x (sideline-to-sideline)
-      // leftSinglesX (min x) to rightSinglesX (max x)
-      const rel = (player2.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-      // Player 2: inverted logic from Player 1 for landscape (since they face opposite directions)
-      return handedness === "right"
-        ? rel < 2 / 3
-          ? "forehand"
-          : "backhand"
-        : rel > 1 / 3
-        ? "forehand"
-        : "backhand";
+      // Landscape logic - Player 2 faces opposite direction
+      if (handedness === "right") {
+        const threshold = CENTER;
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "forehand";
+        } else if (rel > threshold + hysteresis) {
+          result = "backhand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer2Swing;
+        }
+      } else {
+        // Left-handed: opposite
+        const threshold = CENTER;
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "backhand";
+        } else if (rel > threshold + hysteresis) {
+          result = "forehand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer2Swing;
+        }
+      }
     } else {
-      // Portrait logic: Player 2 is on opposite side, so logic is inverted from Player 1
-      const rel = (player2.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-      // For Player 2 (facing up): forehand on right 2/3, backhand on left 1/3
-      return handedness === "right"
-        ? rel > 1 / 3
-          ? "forehand"
-          : "backhand"
-        : rel < 2 / 3
-        ? "forehand"
-        : "backhand";
+      // Portrait logic - Player 2 faces opposite direction
+      if (handedness === "right") {
+        const threshold = 0.4; // Slightly left of center (opposite of Player 1)
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "backhand";
+        } else if (rel > threshold + hysteresis) {
+          result = "forehand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer2Swing;
+        }
+      } else {
+        // Left-handed: opposite
+        const threshold = 0.6; // Slightly right of center
+        const hysteresis = TRANSITION_WIDTH / 2;
+
+        if (rel < threshold - hysteresis) {
+          result = "forehand";
+        } else if (rel > threshold + hysteresis) {
+          result = "backhand";
+        } else {
+          // In transition zone - use hysteresis
+          result = prevPlayer2Swing;
+        }
+      }
     }
+
+    // Update previous swing state
+    if (result !== prevPlayer2Swing) {
+      setPrevPlayer2Swing(result);
+    }
+
+    return result;
+  }
+
+  // --- Helper: getContactPoint (shared between drawing and useEffect) ---
+  function getContactPoint(
+    player: { x: number; y: number },
+    handedness: "left" | "right",
+    swing: "forehand" | "backhand",
+    isPlayer1: boolean
+  ): { x: number; y: number } {
+    if (!courtToPxRef.current || !pxToCourtRef.current) {
+      // Fallback to simple calculation if refs not available
+      const theta = getPlayerArmTheta({
+        orientation: courtOrientation,
+        handedness,
+        swing,
+        isPlayer1,
+      });
+      const contactDistance = ARM_RACKET_LENGTH * CONTACT_POINT_RATIO;
+      return {
+        x: player.x + contactDistance * Math.cos(theta),
+        y: player.y + contactDistance * Math.sin(theta),
+      };
+    }
+
+    const theta = getPlayerArmTheta({
+      orientation: courtOrientation,
+      handedness,
+      swing,
+      isPlayer1,
+    });
+
+    // Use pixel-based calculation for consistency with drawing
+    const playerPx = courtToPxRef.current({ x: player.x, y: player.y });
+
+    // Calculate pxPerMeter (same logic as drawing)
+    let pxPerMeter: number;
+    if (courtOrientation === "portrait") {
+      const testPoint1 = courtToPxRef.current({ x: player.x + 1, y: player.y });
+      const testPoint2 = courtToPxRef.current({ x: player.x, y: player.y + 1 });
+      pxPerMeter = Math.sqrt(
+        (testPoint1.x - playerPx.x) ** 2 + (testPoint2.y - playerPx.y) ** 2
+      );
+    } else {
+      const testPoint1 = courtToPxRef.current({ x: player.x, y: player.y + 1 });
+      const testPoint2 = courtToPxRef.current({ x: player.x + 1, y: player.y });
+      pxPerMeter = Math.sqrt(
+        (testPoint1.x - playerPx.x) ** 2 + (testPoint2.y - playerPx.y) ** 2
+      );
+    }
+
+    // Calculate contact point in pixel space
+    const contactPx = ARM_RACKET_LENGTH * pxPerMeter * CONTACT_POINT_RATIO;
+    const visualContactPx = {
+      x: playerPx.x + contactPx * Math.cos(theta),
+      y: playerPx.y + contactPx * Math.sin(theta),
+    };
+
+    // Convert back to logical coordinates
+    return pxToCourtRef.current({
+      px: visualContactPx.x,
+      py: visualContactPx.y,
+    });
   }
 
   // --- Helper: getBisectorAndP1 (for player2's angles and bisector) ---
   function getBisectorAndP1(originPx?: { x: number; y: number }) {
-    console.log("[DEBUG] getBisectorAndP1 called with originPx:", originPx);
     // Use true angle bisector in meters (not pixels)
-    // Always use Player 2's dynamic calculation for proper contact point
+    // Use the same contact point that's used for drawing the arm
     const armExt = (() => {
-      console.log(
-        "[DEBUG] Using player2 calculation path (always for Player 2)"
-      );
+      // If originPx is provided, convert to court coords to ensure consistency
+      if (originPx && pxToCourtRef.current) {
+        const convertedPoint = pxToCourtRef.current({
+          px: originPx.x,
+          py: originPx.y,
+        });
+
+        return convertedPoint;
+      }
+
+      // Otherwise calculate the contact point using the same logic as drawing
       const resolvedSwing =
         player2Swing === "auto"
           ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
@@ -332,15 +506,49 @@ const TennisCourt: React.FC = () => {
         isPlayer1: false,
       });
 
-      const contactPoint = {
-        x:
-          player2.x + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(theta),
-        y:
-          player2.y + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(theta),
+      // Use the same pixel-based calculation as the drawing function
+      const player2Px = courtToPxRef.current
+        ? courtToPxRef.current({ x: player2.x, y: player2.y })
+        : { x: 0, y: 0 };
+
+      // Calculate pxPerMeter (same logic as drawing)
+      let pxPerMeter: number;
+      if (courtOrientation === "portrait") {
+        const testPoint1 = courtToPxRef.current
+          ? courtToPxRef.current({ x: player2.x + 1, y: player2.y })
+          : { x: 0, y: 0 };
+        const testPoint2 = courtToPxRef.current
+          ? courtToPxRef.current({ x: player2.x, y: player2.y + 1 })
+          : { x: 0, y: 0 };
+        pxPerMeter = Math.sqrt(
+          (testPoint1.x - player2Px.x) ** 2 + (testPoint2.y - player2Px.y) ** 2
+        );
+      } else {
+        const testPoint1 = courtToPxRef.current
+          ? courtToPxRef.current({ x: player2.x, y: player2.y + 1 })
+          : { x: 0, y: 0 };
+        const testPoint2 = courtToPxRef.current
+          ? courtToPxRef.current({ x: player2.x + 1, y: player2.y })
+          : { x: 0, y: 0 };
+        pxPerMeter = Math.sqrt(
+          (testPoint1.x - player2Px.x) ** 2 + (testPoint2.y - player2Px.y) ** 2
+        );
+      }
+
+      // Calculate contact point in pixel space
+      const contactPx = ARM_RACKET_LENGTH * pxPerMeter * CONTACT_POINT_RATIO;
+      const visualContactPx = {
+        x: player2Px.x + contactPx * Math.cos(theta),
+        y: player2Px.y + contactPx * Math.sin(theta),
       };
 
+      // Convert back to logical coordinates
+      const contactPoint = pxToCourtRef.current
+        ? pxToCourtRef.current({ px: visualContactPx.x, py: visualContactPx.y })
+        : { x: player2.x, y: player2.y };
+
       // DEBUG: Log Player 2 contact point calculation
-      console.log("[PLAYER 2 CONTACT DEBUG]", {
+      console.log("[PLAYER 2 BISECTOR CONTACT DEBUG]", {
         player2Position: player2,
         handedness: player2Handedness,
         swing: resolvedSwing,
@@ -354,6 +562,7 @@ const TennisCourt: React.FC = () => {
           y: contactPoint.y - player2.y,
         },
         courtOrientation: courtOrientation,
+        calculationSource: "BISECTOR_FUNCTION",
       });
 
       return contactPoint;
@@ -369,6 +578,20 @@ const TennisCourt: React.FC = () => {
     const bis = { x: n1.x + n2.x, y: n1.y + n2.y };
     const bisLen = Math.hypot(bis.x, bis.y);
     const bisNorm = { x: bis.x / bisLen, y: bis.y / bisLen };
+
+    // DEBUG: Log bisector calculation details
+    // console.log("[PLAYER 2 BISECTOR CALCULATION DEBUG]", {
+    //   armExt: armExt,
+    //   shot3: shot3,
+    //   shot4: shot4,
+    //   v1: v1,
+    //   v2: v2,
+    //   n1: n1,
+    //   n2: n2,
+    //   bis: bis,
+    //   bisNorm: bisNorm,
+    //   courtOrientation: courtOrientation,
+    // });
 
     // Calculate intersection with background edge - orientation aware
     let bisectorEnd: { x: number; y: number };
@@ -432,21 +655,21 @@ const TennisCourt: React.FC = () => {
       };
 
       // DEBUG: Log Player 1 contact point calculation
-      console.log("[PLAYER 1 CONTACT DEBUG]", {
-        player1Position: player1,
-        handedness: player1Handedness,
-        swing: resolvedSwing,
-        theta: theta,
-        thetaDegrees: (theta * 180) / Math.PI,
-        armLength: ARM_RACKET_LENGTH,
-        contactRatio: CONTACT_POINT_RATIO,
-        contactPoint: contactPoint,
-        deltaFromPlayer: {
-          x: contactPoint.x - player1.x,
-          y: contactPoint.y - player1.y,
-        },
-        courtOrientation: courtOrientation,
-      });
+      // console.log("[PLAYER 1 CONTACT DEBUG]", {
+      //   player1Position: player1,
+      //   handedness: player1Handedness,
+      //   swing: resolvedSwing,
+      //   theta: theta,
+      //   thetaDegrees: (theta * 180) / Math.PI,
+      //   armLength: ARM_RACKET_LENGTH,
+      //   contactRatio: CONTACT_POINT_RATIO,
+      //   contactPoint: contactPoint,
+      //   deltaFromPlayer: {
+      //     x: contactPoint.x - player1.x,
+      //     y: contactPoint.y - player1.y,
+      //   },
+      //   courtOrientation: courtOrientation,
+      // });
 
       return contactPoint;
     })();
@@ -626,13 +849,27 @@ const TennisCourt: React.FC = () => {
   // --- Auto-update shot endpoints based on Player 1 position ---
   useEffect(() => {
     if (!hasMovedPlayer1) return;
-    // Determine arm+racquet contact point
-    const theta =
-      player1Handedness === "right" ? (3 * Math.PI) / 4 : Math.PI / 4;
-    const contact = {
-      x: player1.x + ARM_RACKET_LENGTH * Math.cos(theta),
-      y: player1.y + ARM_RACKET_LENGTH * Math.sin(theta),
-    };
+    // Calculate proper contact point using the same logic as drawing
+    const resolvedSwing =
+      player1Swing === "auto"
+        ? resolvePlayer1Swing(player1, player1Handedness, courtOrientation)
+        : player1Swing;
+    const theta = getPlayerArmTheta({
+      orientation: courtOrientation,
+      handedness: player1Handedness,
+      swing: resolvedSwing,
+      isPlayer1: true,
+    });
+
+    console.log("player1.x :>> ", player1.x);
+
+    const contact = getContactPoint(
+      player1,
+      player1Handedness,
+      resolvedSwing,
+      true
+    );
+    console.log("contact.x :>> ", contact.x);
     // Down-the-line: interpolate from baseline to service line as player advances
     const downLineX = contact.x < singlesCenterX ? leftSinglesX : rightSinglesX;
     const serviceLineY = NET_Y + 6.4;
@@ -646,7 +883,6 @@ const TennisCourt: React.FC = () => {
       0,
       1.2
     );
-    console.log("lateral :>> ", lateral);
     const downLineY =
       COURT_LENGTH -
       (forwardNet < 1
@@ -657,20 +893,33 @@ const TennisCourt: React.FC = () => {
     const downLine = { x: downLineX, y: downLineY };
     // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
     const crossX = contact.x < singlesCenterX ? rightSinglesX : leftSinglesX;
+
+    const lateralScale = 7;
+    const forwardScale = 5;
+    console.log("lateral :>> ", lateral);
+
     const crossY = Math.max(
-      COURT_LENGTH - lateral * 7 - (forwardNet < 1 ? (1 - forwardNet) * 5 : 0),
+      COURT_LENGTH -
+        lateral * lateralScale -
+        (forwardNet < 1 ? (1 - forwardNet) * forwardScale : 0),
       NET_Y + 1
     );
     const cross = { x: crossX, y: crossY };
     setShot1(downLine);
     setShot2(cross);
-  }, [player1.x, player1.y, hasMovedPlayer1, player1Handedness]);
+  }, [
+    player1.x,
+    player1.y,
+    hasMovedPlayer1,
+    player1Handedness,
+    player1Swing,
+    courtOrientation,
+  ]);
 
   // --- Auto-update shot endpoints based on Player 2 position ---
   useEffect(() => {
     if (!hasMovedPlayer2) return;
-    // Determine arm+racquet contact point for player2 (facing opposite direction)
-    // Use proper arm calculation based on handedness and swing
+    // Calculate proper contact point using the same logic as drawing
     const resolvedSwing =
       player2Swing === "auto"
         ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
@@ -681,10 +930,13 @@ const TennisCourt: React.FC = () => {
       swing: resolvedSwing,
       isPlayer1: false,
     });
-    const contact = {
-      x: player2.x + ARM_RACKET_LENGTH * Math.cos(theta),
-      y: player2.y + ARM_RACKET_LENGTH * Math.sin(theta),
-    };
+
+    const contact = getContactPoint(
+      player2,
+      player2Handedness,
+      resolvedSwing,
+      false
+    );
 
     // Use EXACT same logic as Player1 but mirrored for opposite side
     // Down-the-line: interpolate from baseline to service line as player advances
@@ -717,15 +969,29 @@ const TennisCourt: React.FC = () => {
 
     // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
     const crossX = contact.x < singlesCenterX ? rightSinglesX : leftSinglesX;
+
+    // Orientation-aware distance scaling for cross-court shots (same as Player 1)
+    const lateralScale = courtOrientation === "portrait" ? 7 : 7.5; // Reduced for landscape
+    const forwardScale = courtOrientation === "portrait" ? 5 : 5.5; // Reduced for landscape
+
     const crossY = Math.min(
       // Use Math.min instead of Math.max (opposite of Player1)
-      0 + lateral * 7 + (forwardNet < 1 ? (1 - forwardNet) * 5 : 0),
+      0 +
+        lateral * lateralScale +
+        (forwardNet < 1 ? (1 - forwardNet) * forwardScale : 0),
       NET_Y - 1 // Don't go past 1m from net
     );
     const cross = { x: crossX, y: crossY };
     setShot3(downLine);
     setShot4(cross);
-  }, [player2.x, player2.y, hasMovedPlayer2]);
+  }, [
+    player2.x,
+    player2.y,
+    hasMovedPlayer2,
+    player2Handedness,
+    player2Swing,
+    courtOrientation,
+  ]);
 
   // Responsive resize with aspect ratio lock
   useEffect(() => {
@@ -758,20 +1024,6 @@ const TennisCourt: React.FC = () => {
             width = Math.round(height * aspect);
           }
         }
-        console.log(
-          "containerW",
-          containerW,
-          "containerH",
-          containerH,
-          "canvas width",
-          width,
-          "canvas height",
-          height,
-          "aspect",
-          aspect,
-          "orientation",
-          courtOrientation
-        );
 
         setCanvasSize({ width, height });
       }
@@ -874,12 +1126,14 @@ const TennisCourt: React.FC = () => {
         const y = topY + s * (botY - topY);
         return displayToLogical({ x, y });
       } else {
-        // Landscape: invert the swap logic of courtToPx
-        const t = (px - pxTopLeft.x) / (pxTopRight.x - pxTopLeft.x); // 0 (left) to 1 (right)
-        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y); // 0 (top) to 1 (bottom)
-        const logicalY = topY + t * (botY - topY);
-        const logicalX = leftSinglesX + s * (rightSinglesX - leftSinglesX);
-        // Landscape: do NOT call displayToLogical, just return the mapping directly
+        // Landscape: properly invert the courtToPx mapping
+        // courtToPx does: xPx = pxTopLeft.x + t * (pxTopRight.x - pxTopLeft.x) where t = (logical.y - topY) / (botY - topY)
+        // courtToPx does: yPx = pxTopLeft.y + s * (pxBotLeft.y - pxTopLeft.y) where s = (logical.x - leftSinglesX) / (rightSinglesX - leftSinglesX)
+        const t = (px - pxTopLeft.x) / (pxTopRight.x - pxTopLeft.x); // Extract t from xPx
+        const s = (py - pxTopLeft.y) / (pxBotLeft.y - pxTopLeft.y); // Extract s from yPx
+        // Invert the mapping: t maps to logical.y, s maps to logical.x
+        const logicalY = topY + t * (botY - topY); // t -> logical.y
+        const logicalX = leftSinglesX + s * (rightSinglesX - leftSinglesX); // s -> logical.x
         return { x: logicalX, y: logicalY };
       }
     }
@@ -898,24 +1152,7 @@ const TennisCourt: React.FC = () => {
       const shot2Px = courtToPx({ x: shot2.x, y: shot2.y });
       const shot3Px = courtToPx({ x: shot3.x, y: shot3.y });
       const shot4Px = courtToPx({ x: shot4.x, y: shot4.y });
-      // Log all positions and mouse
-      if (window && (window as any).DEBUG_HITTEST) {
-        console.log("hitTestHandles", {
-          px,
-          py,
-          player1Px,
-          player2Px,
-          shot1Px,
-          shot2Px,
-          shot3Px,
-          shot4Px,
-          offsetX: anchorsRef.current?.offsetX,
-          offsetY: anchorsRef.current?.offsetY,
-          drawWidth: anchorsRef.current?.drawWidth,
-          drawHeight: anchorsRef.current?.drawHeight,
-          r,
-        });
-      }
+
       if (dist(px, py, player1Px.x, player1Px.y) < r) return "player1";
       if (dist(px, py, player2Px.x, player2Px.y) < r) return "player2";
       if (dist(px, py, shot1Px.x, shot1Px.y) < r) return "shot1";
@@ -1009,25 +1246,17 @@ const TennisCourt: React.FC = () => {
         bgLogicalBottom = Math.max(topY, bottomY);
       }
 
-      console.log("[BG LOGICAL BOUNDS]", {
-        courtOrientation,
-        bgLogicalLeft,
-        bgLogicalRight,
-        bgLogicalTop,
-        bgLogicalBottom,
-      });
-
-      console.log("[DRAG LOGIC] Player1 drag", {
-        orientation: courtOrientation,
-        bgLogicalLeft,
-        bgLogicalRight,
-        bgLogicalTop,
-        bgLogicalBottom,
-        courtX,
-        courtY,
-        clampX: clamp(courtX, bgLogicalLeft, bgLogicalRight),
-        clampY: clamp(courtY, bgLogicalTop, NET_Y),
-      });
+      // console.log("[DRAG LOGIC] Player1 drag", {
+      //   orientation: courtOrientation,
+      //   bgLogicalLeft,
+      //   bgLogicalRight,
+      //   bgLogicalTop,
+      //   bgLogicalBottom,
+      //   courtX,
+      //   courtY,
+      //   clampX: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+      //   clampY: clamp(courtY, bgLogicalTop, NET_Y),
+      // });
       if (dragging === "player1") {
         setPlayer1({
           x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
@@ -1098,39 +1327,6 @@ const TennisCourt: React.FC = () => {
     }
     const player1Px = courtToPx({ x: player1.x, y: player1.y });
     let swing: "forehand" | "backhand";
-    // Helper to resolve Player 1's swing in auto mode
-    // Helper to resolve Player 1's swing in auto mode
-    function resolvePlayer1Swing(
-      player1: { x: number; y: number },
-      handedness: "left" | "right",
-      orientation: CourtOrientation
-    ): "forehand" | "backhand" {
-      if (orientation === "landscape") {
-        // Landscape: rel is based on x (sideline-to-sideline)
-        // leftSinglesX (min x) to rightSinglesX (max x)
-        const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-        // Right-handed: forehand on left 2/3, backhand on right 1/3
-        // Left-handed: forehand on right 2/3, backhand on left 1/3
-        return handedness === "right"
-          ? rel < 1 / 3
-            ? "backhand"
-            : "forehand"
-          : rel > 2 / 3
-          ? "backhand"
-          : "forehand";
-      } else {
-        // Portrait logic (example: based on y position)
-        const rel = (player1.x - leftSinglesX) / (rightSinglesX - leftSinglesX);
-        return handedness === "right"
-          ? rel < 2 / 3
-            ? "forehand"
-            : "backhand"
-          : rel > 1 / 3
-          ? "forehand"
-          : "backhand";
-      }
-    }
-
     if (player1Swing === "auto") {
       swing = resolvePlayer1Swing(player1, player1Handedness, courtOrientation);
     } else {
@@ -1142,13 +1338,6 @@ const TennisCourt: React.FC = () => {
       swing,
     });
     const armPx = ARM_RACKET_LENGTH;
-    let player1ContactPoint: { x: number; y: number };
-    let player1ArmExtPxForOverlay: { x: number; y: number };
-    player1ContactPoint = {
-      x: player1.x + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(theta),
-      y: player1.y + ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(theta),
-    };
-    player1ArmExtPxForOverlay = courtToPx(player1ContactPoint);
 
     const player2Px = courtToPx({ x: player2.x, y: player2.y });
     const shot1Px = courtToPx({ x: shot1.x, y: shot1.y });
@@ -1156,34 +1345,7 @@ const TennisCourt: React.FC = () => {
     const shot3Px = courtToPx({ x: shot3.x, y: shot3.y });
     const shot4Px = courtToPx({ x: shot4.x, y: shot4.y });
 
-    // Calculate player2's contact point for drawing (not full arm extension)
-    const resolvedPlayer2Swing =
-      player2Swing === "auto"
-        ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
-        : player2Swing;
-    const player2ArmTheta = getPlayerArmTheta({
-      orientation: courtOrientation,
-      handedness: player2Handedness,
-      swing: resolvedPlayer2Swing,
-      isPlayer1: false,
-    });
-    let player2ContactPoint: { x: number; y: number };
-    let player2ArmExtPxForOverlay: { x: number; y: number };
-    player2ContactPoint = {
-      x:
-        player2.x +
-        ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(player2ArmTheta),
-      y:
-        player2.y +
-        ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(player2ArmTheta),
-    };
-    player2ArmExtPxForOverlay = courtToPx(player2ContactPoint);
-
-    // console.log('[PLAYER1]', 'logical:', player1, 'pixel:', player1Px);
-    // console.log('[PLAYER2]', 'logical:', player2, 'pixel:', player2Px);
-    // console.log('[SHOT1]', 'logical:', shot1, 'pixel:', shot1Px);
-    // console.log('[SHOT2]', 'logical:', shot2, 'pixel:', shot2Px);
-
+    // Calculate pxPerMeter first
     let pxPerMeter: number;
     if (courtOrientation === "portrait") {
       pxPerMeter = Math.sqrt(
@@ -1197,6 +1359,86 @@ const TennisCourt: React.FC = () => {
           (courtToPx({ x: player1.x + 1, y: player1.y }).y - player1Px.y) ** 2
       );
     }
+
+    // Calculate player1's contact point using shared helper
+    const player1ContactPoint = getContactPoint(
+      player1,
+      player1Handedness,
+      swing,
+      true
+    );
+
+    // Full arm length for visual drawing
+    const fullArmPxPlayer1 = ARM_RACKET_LENGTH * pxPerMeter;
+    const visualArmEndPxPlayer1 = {
+      x: player1Px.x + fullArmPxPlayer1 * Math.cos(theta),
+      y: player1Px.y + fullArmPxPlayer1 * Math.sin(theta),
+    };
+
+    // Use contact point for shots/bisector - convert to pixels for overlay
+    const player1ArmExtPxForOverlay = courtToPx({
+      x: player1ContactPoint.x,
+      y: player1ContactPoint.y,
+    });
+
+    // Calculate player2's contact point using shared helper
+    const resolvedPlayer2Swing =
+      player2Swing === "auto"
+        ? resolvePlayer2Swing(player2, player2Handedness, courtOrientation)
+        : player2Swing;
+    const player2ArmTheta = getPlayerArmTheta({
+      orientation: courtOrientation,
+      handedness: player2Handedness,
+      swing: resolvedPlayer2Swing,
+      isPlayer1: false,
+    });
+
+    const player2ContactPoint = getContactPoint(
+      player2,
+      player2Handedness,
+      resolvedPlayer2Swing,
+      false
+    );
+
+    // Full arm length for visual drawing
+    const fullArmPxPlayer2 = ARM_RACKET_LENGTH * pxPerMeter;
+    const visualArmEndPxPlayer2 = {
+      x: player2Px.x + fullArmPxPlayer2 * Math.cos(player2ArmTheta),
+      y: player2Px.y + fullArmPxPlayer2 * Math.sin(player2ArmTheta),
+    };
+
+    // Use contact point for shots/bisector - convert to pixels for overlay
+    const player2ArmExtPxForOverlay = courtToPx({
+      x: player2ContactPoint.x,
+      y: player2ContactPoint.y,
+    });
+
+    // DEBUG: Log Player 2 drawing contact point calculation
+    // console.log("[PLAYER 2 DRAWING CONTACT DEBUG]", {
+    //   player2Position: player2,
+    //   handedness: player2Handedness,
+    //   swing: resolvedPlayer2Swing,
+    //   theta: player2ArmTheta,
+    //   thetaDegrees: (player2ArmTheta * 180) / Math.PI,
+    //   armLength: ARM_RACKET_LENGTH,
+    //   contactRatio: CONTACT_POINT_RATIO,
+    //   contactPoint: player2ContactPoint,
+    //   contactPointPx: player2ArmExtPxForOverlay,
+    //   deltaFromPlayer: {
+    //     x: player2ContactPoint.x - player2.x,
+    //     y: player2ContactPoint.y - player2.y,
+    //   },
+    //   courtOrientation: courtOrientation,
+    //   // Additional debug: what should the contact point be?
+    //   expectedContactDelta: {
+    //     x: ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.cos(player2ArmTheta),
+    //     y: ARM_RACKET_LENGTH * CONTACT_POINT_RATIO * Math.sin(player2ArmTheta),
+    //   },
+    //   actualContactDelta: {
+    //     x: player2ContactPoint.x - player2.x,
+    //     y: player2ContactPoint.y - player2.y,
+    //   },
+    // });
 
     // Player 1 shots
     if (showShotsPlayer1) {
@@ -1246,23 +1488,14 @@ const TennisCourt: React.FC = () => {
       ctx.setLineDash([8, 8]);
       ctx.beginPath();
       ctx.moveTo(player2ArmExtPxForOverlay.x, player2ArmExtPxForOverlay.y);
-      const { bisectorEndPx: bisectorEndPxP2 } = getBisectorAndP1(
-        player2ArmExtPxForOverlay
-      );
+      // Pass the exact same contact point used for drawing to ensure consistency
+
+      const { bisectorEndPx: bisectorEndPxP2 } = getBisectorAndP1();
       ctx.lineTo(bisectorEndPxP2.x, bisectorEndPxP2.y);
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    // --- DEBUG: Show mapping for landscape mode ---
-    if (courtOrientation === "landscape") {
-      console.log("[DRAW] player1Px", player1Px, "player1", player1);
-    }
-    console.log(
-      "[drawCourtAndPlayers] player1Swing:",
-      swing,
-      "orientation:",
-      courtOrientation
-    );
+
     drawPlayerHandle({
       ctx,
       x: player1Px.x,
@@ -1285,6 +1518,55 @@ const TennisCourt: React.FC = () => {
       isPlayer1: false,
       orientation: courtOrientation,
     });
+
+    // Draw rackets at the end of arms for both players
+    function drawRacket(
+      ctx: CanvasRenderingContext2D,
+      armEndPx: { x: number; y: number },
+      theta: number,
+      color: string,
+      swing: "forehand" | "backhand"
+    ) {
+      const racketLength = 20; // Length of racket head in pixels
+      const racketWidth = 12; // Width of racket head in pixels
+
+      // Position racket center back along arm direction by half racket length
+      const racketCenterX = armEndPx.x - (racketLength / 2) * Math.cos(theta);
+      const racketCenterY = armEndPx.y - (racketLength / 2) * Math.sin(theta);
+
+      ctx.save();
+      ctx.translate(racketCenterX, racketCenterY);
+
+      // Racket orientation: aligned with arm direction
+      ctx.rotate(theta);
+
+      // Draw racket head as ellipse (longer axis along arm direction)
+      ctx.beginPath();
+      ctx.ellipse(0, 0, racketLength / 2, racketWidth / 2, 0, 0, 2 * Math.PI);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Fill with semi-transparent color
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.3;
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+
+      ctx.restore();
+    }
+
+    // Draw Player 1 racket
+    drawRacket(ctx, visualArmEndPxPlayer1, theta, "blue", swing);
+
+    // Draw Player 2 racket
+    drawRacket(
+      ctx,
+      visualArmEndPxPlayer2,
+      player2ArmTheta,
+      "purple",
+      resolvedPlayer2Swing
+    );
     if (showShotsPlayer1) {
       drawShotHandle(ctx, shot1Px.x, shot1Px.y, "red");
       drawShotHandle(ctx, shot2Px.x, shot2Px.y, "red");
@@ -1366,7 +1648,6 @@ const TennisCourt: React.FC = () => {
     const py = (e.clientY - rect.top) * scaleY;
     // Pass full canvas px/py to hitTestHandles
     const hit = hitTestHandlesRef.current(px, py);
-    console.log("PointerDown", { px, py, hit });
     setDragging(hit);
   }
 

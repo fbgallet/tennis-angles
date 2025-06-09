@@ -15,8 +15,8 @@ interface PlayerHandleProps {
 }
 
 // Arm/racket drawing constants (should be kept in sync with TennisCourt)
-const ARM_RACKET_LENGTH = 1.105; // meters (approximate: arm+racquet, 30% longer)
-const CONTACT_POINT_RATIO = 0.92; // Contact point is 92% of the arm+racquet length (closer to racket end)
+const ARM_RACKET_LENGTH = 1; // meters (approximate: arm+racquet, 30% longer)
+const CONTACT_POINT_RATIO = 0.8; // Contact point is 80% of the arm+racquet length (closer to racket end)
 
 /**
  * Draw a draggable player handle (canvas drawing helper)
@@ -53,9 +53,10 @@ export function getPlayerArmTheta({
           ? (4 * Math.PI) / 3 // 240° (forward-right for P2)
           : (2 * Math.PI) / 3; // 120° (forward-left for P2)
       } else {
+        // Left-handed Player 2: opposite angles
         return swing === "forehand"
-          ? (4 * Math.PI) / 3 // 240° (forward-right for P2)
-          : (2 * Math.PI) / 3; // 120° (forward-left for P2)
+          ? (2 * Math.PI) / 3 // 120° (forward-left for left-handed P2)
+          : (4 * Math.PI) / 3; // 240° (forward-right for left-handed P2)
       }
     }
   } else {
@@ -127,31 +128,6 @@ export function drawPlayerHandle({
   ctx.moveTo(x, y);
   ctx.lineTo(endX, endY);
   ctx.stroke();
-  // Draw racket as oval shape (perpendicular to arm)
-  const racketWidth = 8;
-  const racketHeight = 4;
-  ctx.save();
-  ctx.translate(endX, endY);
-  ctx.rotate(theta + Math.PI / 2); // Rotate 90° to make racket perpendicular to arm
-  ctx.beginPath();
-  ctx.ellipse(0, 0, racketWidth, racketHeight, 0, 0, 2 * Math.PI);
-  ctx.fillStyle = swingColor;
-  ctx.globalAlpha = 0.7;
-  ctx.fill();
-  ctx.strokeStyle = swingColor;
-  ctx.lineWidth = 2;
-  ctx.globalAlpha = 1.0;
-  ctx.stroke();
-  ctx.restore();
-  if (isPlayer1) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(contactX, contactY, 8, 0, 2 * Math.PI);
-    ctx.fillStyle = "red";
-    ctx.globalAlpha = 0.5;
-    ctx.fill();
-    ctx.restore();
-  }
   // Draw reachable semi-circle area
   ctx.save();
   ctx.fillStyle = color;
