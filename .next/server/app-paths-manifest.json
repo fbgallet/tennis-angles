@@ -1,9 +1,1 @@
-{
-  "/en/page": "app/en/page.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/fr/page": "app/fr/page.js",
-  "/api/visits/route": "app/api/visits/route.js",
-  "/en/visualizer/page": "app/en/visualizer/page.js",
-  "/visualizer/page": "app/visualizer/page.js",
-  "/fr/visualizer/page": "app/fr/visualizer/page.js"
-}
+{}
