@@ -8,27 +8,27 @@ The original `TennisCourt.tsx` component was over 1000 lines long and handled mu
 
 ### 1. Constants and Types
 
-- **`src/constants/tennis.ts`** - All tennis court dimensions, drawing constants, and configuration
-- **`src/constants/court-images.ts`** - Court background image mappings
-- **`src/types/tennis.ts`** - All TypeScript types and interfaces
+- **`app/constants/tennis.ts`** - All tennis court dimensions, drawing constants, and configuration
+- **`app/constants/court-images.ts`** - Court background image mappings
+- **`app/types/tennis.ts`** - All TypeScript types and interfaces
 
 ### 2. Utility Functions
 
-- **`src/utils/coordinates.ts`** - Pure coordinate transformation functions
-- **`src/utils/geometry.ts`** - Mathematical calculations (angles, distances, bisectors)
-- **`src/utils/tennis-logic.ts`** - Tennis-specific logic (swing resolution, shot calculations)
+- **`app/utils/coordinates.ts`** - Pure coordinate transformation functions
+- **`app/utils/geometry.ts`** - Mathematical calculations (angles, distances, bisectors)
+- **`app/utils/tennis-logic.ts`** - Tennis-specific logic (swing resolution, shot calculations)
 
 ### 3. Custom Hooks
 
-- **`src/hooks/useCourtState.ts`** - Player positions, shots, and court settings state management
-- **`src/hooks/useDragHandling.ts`** - Drag and drop functionality
-- **`src/hooks/useCanvasSize.ts`** - Canvas sizing and responsive behavior
+- **`app/hooks/useCourtState.ts`** - Player positions, shots, and court settings state management
+- **`app/hooks/useDragHandling.ts`** - Drag and drop functionality
+- **`app/hooks/useCanvasSize.ts`** - Canvas sizing and responsive behavior
 
 ### 4. UI Components
 
-- **`src/components/CourtControls.tsx`** - All control panels and settings
-- **`src/components/CourtCanvas.tsx`** - Canvas rendering component
-- **`src/components/TennisCourtRefactored.tsx`** - Main refactored component
+- **`app/components/CourtControls.tsx`** - All control panels and settings
+- **`app/components/CourtCanvas.tsx`** - Canvas rendering component
+- **`app/components/TennisCourt.tsx`** - Main tennis court component
 
 ## Key Improvements
 
@@ -63,13 +63,13 @@ The original `TennisCourt.tsx` component was over 1000 lines long and handled mu
 ### Before (1 large file):
 
 ```
-src/components/TennisCourt.tsx (1000+ lines)
+components/TennisCourt.tsx (1000+ lines)
 ```
 
 ### After (organized modules):
 
 ```
-src/
+app/
 ├── constants/
 │   ├── tennis.ts
 │   └── court-images.ts
@@ -86,7 +86,7 @@ src/
 └── components/
     ├── CourtControls.tsx
     ├── CourtCanvas.tsx
-    └── TennisCourtRefactored.tsx
+    └── TennisCourt.tsx
 ```
 
 ## Preserved Functionality
@@ -107,13 +107,13 @@ All existing features have been preserved:
 
 ## Usage
 
-To use the refactored component, simply import and use `TennisCourtRefactored`:
+To use the refactored component, simply import and use `TennisCourt`:
 
 ```tsx
-import TennisCourtRefactored from "./components/TennisCourtRefactored";
+import TennisCourt from "./components/TennisCourt";
 
 function App() {
-  return <TennisCourtRefactored />;
+  return <TennisCourt />;
 }
 ```
 
