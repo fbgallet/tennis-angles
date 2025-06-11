@@ -5,6 +5,7 @@ import type {
   CourtType,
   Handedness,
   SwingType,
+  ShotType,
 } from "../types/tennis";
 import styles from "./BurgerMenu.module.scss";
 
@@ -31,6 +32,8 @@ interface BurgerMenuProps {
   setPlayer2Handedness: (handedness: Handedness) => void;
   player2Swing: SwingType;
   setPlayer2Swing: (swing: SwingType) => void;
+  shotType: ShotType;
+  setShotType: (shotType: ShotType) => void;
   setHasMovedPlayer1: (moved: boolean) => void;
   setHasMovedPlayer2: (moved: boolean) => void;
   feedback: string;
@@ -114,6 +117,8 @@ const BurgerMenu: React.FC<BurgerMenuProps> = (props) => {
             setPlayer2Handedness={props.setPlayer2Handedness}
             player2Swing={props.player2Swing}
             setPlayer2Swing={props.setPlayer2Swing}
+            shotType={props.shotType}
+            setShotType={props.setShotType}
             setHasMovedPlayer1={props.setHasMovedPlayer1}
             setHasMovedPlayer2={props.setHasMovedPlayer2}
             feedback={props.feedback}

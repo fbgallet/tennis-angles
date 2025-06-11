@@ -58,6 +58,7 @@ interface CourtCanvasProps {
   onMouseMove: (e: React.MouseEvent) => void;
   onDoubleClick: (e: React.MouseEvent<HTMLCanvasElement>) => void;
   onTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void;
+  onTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void;
   onTouchEnd: () => void;
 
   // Refs for coordinate transforms
@@ -91,6 +92,7 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
   onMouseMove,
   onDoubleClick,
   onTouchStart,
+  onTouchMove,
   onTouchEnd,
   onTransformsReady,
 }) => {
@@ -811,6 +813,7 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       onMouseMove={handleEnhancedMouseMove}
       onDoubleClick={onDoubleClick}
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       aria-label="Tennis court simulation"
       title={`Player 1: ${player1Handedness} (${

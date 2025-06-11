@@ -4,6 +4,7 @@ import type {
   CourtType,
   Handedness,
   SwingType,
+  ShotType,
 } from "../types/tennis";
 import tcStyles from "./TennisCourt.module.scss";
 
@@ -30,6 +31,8 @@ interface CourtControlsProps {
   setPlayer2Handedness: (handedness: Handedness) => void;
   player2Swing: SwingType;
   setPlayer2Swing: (swing: SwingType) => void;
+  shotType: ShotType;
+  setShotType: (shotType: ShotType) => void;
   setHasMovedPlayer1: (moved: boolean) => void;
   setHasMovedPlayer2: (moved: boolean) => void;
   feedback: string;
@@ -62,6 +65,8 @@ const CourtControls: React.FC<CourtControlsProps> = ({
   setPlayer2Handedness,
   player2Swing,
   setPlayer2Swing,
+  shotType,
+  setShotType,
   setHasMovedPlayer1,
   setHasMovedPlayer2,
   feedback,
@@ -100,6 +105,25 @@ const CourtControls: React.FC<CourtControlsProps> = ({
               <option value="clay">Clay</option>
               <option value="hard">Hard</option>
               <option value="grass">Grass</option>
+            </select>
+          </label>
+        </div>
+        <div className={tcStyles.compactRow}>
+          <label className={tcStyles.selectLabel}>
+            <span className={tcStyles.selectText}>Shot type:</span>
+            <select
+              value={shotType}
+              onChange={(e) => setShotType(e.target.value as ShotType)}
+              className={tcStyles.smallSelect}
+            >
+              <option value="flat_attack">
+                Flat attack forehand (110 km/h)
+              </option>
+              <option value="powerful_topspin">
+                Powerful topspin forehand (95 km/h)
+              </option>
+              <option value="rally_topspin">Rally topspin (80 km/h)</option>
+              <option value="defensive_slice">Defensive slice (60 km/h)</option>
             </select>
           </label>
         </div>

@@ -143,8 +143,27 @@ const TennisCourt: React.FC = () => {
     courtState.courtOrientation,
   ]);
 
-  // Handle player 1 double-click for swing toggle
-  const handlePlayer1DoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Cycle swing mode for a player
+  const cycleSwingMode = (playerId: "player1" | "player2") => {
+    if (playerId === "player1") {
+      courtState.setPlayer1Swing((s) => {
+        const next =
+          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
+        return next;
+      });
+      courtState.setHasMovedPlayer1(true);
+    } else {
+      courtState.setPlayer2Swing((s) => {
+        const next =
+          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
+        return next;
+      });
+      courtState.setHasMovedPlayer2(true);
+    }
+  };
+
+  // Handle double-click for swing toggle (both players)
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!hitTestHandlesRef.current) return;
 
     const canvas = e.currentTarget;
@@ -154,17 +173,18 @@ const TennisCourt: React.FC = () => {
 
     const hit = hitTestHandlesRef.current(px, py);
     if (hit === "player1") {
-      courtState.setPlayer1Swing((s) => {
-        const next =
-          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
-        return next;
-      });
-      courtState.setHasMovedPlayer1(true);
+      cycleSwingMode("player1");
+    } else if (hit === "player2") {
+      cycleSwingMode("player2");
     }
   };
 
-  // Mobile long-press support for swing toggle
-  let longPressTimer: number | null = null;
+  // Touch handling for double-tap (coordinated with drag handling)
+  const touchTimerRef = useRef<number | null>(null);
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastTouchTargetRef = useRef<string | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const touchMovedRef = useRef<boolean>(false);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!hitTestHandlesRef.current) return;
@@ -175,23 +195,71 @@ const TennisCourt: React.FC = () => {
     const px = touch.clientX - rect.left;
     const py = touch.clientY - rect.top;
 
+    // Store initial touch position
+    touchStartPosRef.current = { x: px, y: py };
+    touchMovedRef.current = false;
+
     const hit = hitTestHandlesRef.current(px, py);
-    if (hit === "player1") {
-      longPressTimer = window.setTimeout(() => {
-        courtState.setPlayer1Swing((s) => {
-          const next =
-            s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
-          return next;
-        });
-        courtState.setHasMovedPlayer1(true);
-      }, 500);
+    const currentTime = Date.now();
+
+    // Only handle double-tap for players
+    if (hit === "player1" || hit === "player2") {
+      // Check for double-tap (within 300ms and same target)
+      if (
+        currentTime - lastTouchTimeRef.current < 300 &&
+        lastTouchTargetRef.current === hit
+      ) {
+        // Prevent default to avoid conflicts with drag
+        e.preventDefault();
+
+        // Double-tap detected - cycle swing mode
+        cycleSwingMode(hit as "player1" | "player2");
+
+        // Reset to prevent triple-tap
+        lastTouchTimeRef.current = 0;
+        lastTouchTargetRef.current = null;
+        touchStartPosRef.current = null;
+      } else {
+        // First tap - store for potential double-tap
+        lastTouchTimeRef.current = currentTime;
+        lastTouchTargetRef.current = hit;
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!touchStartPosRef.current) return;
+
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const px = touch.clientX - rect.left;
+    const py = touch.clientY - rect.top;
+
+    // Calculate movement distance
+    const moveDistance = Math.hypot(
+      px - touchStartPosRef.current.x,
+      py - touchStartPosRef.current.y
+    );
+
+    // If moved more than 10 pixels, consider it a drag, not a tap
+    if (moveDistance > 10) {
+      touchMovedRef.current = true;
+      // Clear double-tap state since this is a drag
+      lastTouchTimeRef.current = 0;
+      lastTouchTargetRef.current = null;
     }
   };
 
   const handleTouchEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+    // Reset touch tracking
+    touchStartPosRef.current = null;
+    touchMovedRef.current = false;
+
+    // Clear any existing timer
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
     }
   };
 
@@ -406,8 +474,9 @@ const TennisCourt: React.FC = () => {
               hitTestHandlesRef.current
             )
           }
-          onDoubleClick={handlePlayer1DoubleClick}
+          onDoubleClick={handleDoubleClick}
           onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTransformsReady={handleTransformsReady}
         />

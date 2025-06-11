@@ -3,6 +3,11 @@ export type CourtType = "clay" | "hard" | "grass";
 export type Handedness = "right" | "left";
 export type SwingType = "auto" | "forehand" | "backhand";
 export type ResolvedSwingType = "forehand" | "backhand";
+export type ShotType =
+  | "flat_attack"
+  | "powerful_topspin"
+  | "rally_topspin"
+  | "defensive_slice";
 
 export type DragTarget =
   | "player1"

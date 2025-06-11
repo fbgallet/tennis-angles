@@ -19,6 +19,7 @@ import {
 } from "../utils/geometry";
 import { COURT_LENGTH } from "../constants/tennis";
 import { BG_SIZES } from "../constants/tennis";
+import type { ShotType } from "../types/tennis";
 import tcStyles from "./TennisCourt.module.scss";
 
 const TennisCourt: React.FC = () => {
@@ -28,6 +29,9 @@ const TennisCourt: React.FC = () => {
   const { canvasSize, containerRef } = useCanvasSize(
     courtState.courtOrientation
   );
+
+  // Shot type state
+  const [shotType, setShotType] = React.useState<ShotType>("rally_topspin");
 
   // Refs for coordinate transforms
   const courtToPxRef = useRef<any>(null);
@@ -54,6 +58,56 @@ const TennisCourt: React.FC = () => {
     // Store anchors for drag handling
     dragHandling.anchorsRef.current = transforms;
   };
+
+  // Track active player (for stats panel)
+  const [activePlayer, setActivePlayer] = React.useState<"player1" | "player2">(
+    "player1"
+  );
+  const [hoveredPlayer, setHoveredPlayer] = React.useState<
+    "player1" | "player2" | null
+  >(null);
+
+  // Update active player when interacting, but only if both players' shots are visible or none are visible
+  React.useEffect(() => {
+    const bothShotsVisible =
+      courtState.showShotsPlayer1 && courtState.showShotsPlayer2;
+    const noShotsVisible =
+      !courtState.showShotsPlayer1 && !courtState.showShotsPlayer2;
+    const canSwitchPlayer = bothShotsVisible || noShotsVisible;
+
+    if (canSwitchPlayer) {
+      if (
+        dragHandling.dragging === "player1" ||
+        dragHandling.dragging === "player2"
+      ) {
+        setActivePlayer(dragHandling.dragging);
+      } else if (hoveredPlayer) {
+        setActivePlayer(hoveredPlayer);
+      }
+    }
+  }, [
+    dragHandling.dragging,
+    hoveredPlayer,
+    courtState.showShotsPlayer1,
+    courtState.showShotsPlayer2,
+  ]);
+
+  // Determine display player based on shot visibility
+  const bothShotsVisible =
+    courtState.showShotsPlayer1 && courtState.showShotsPlayer2;
+  const noShotsVisible =
+    !courtState.showShotsPlayer1 && !courtState.showShotsPlayer2;
+  const canSwitchPlayer = bothShotsVisible || noShotsVisible;
+
+  let displayPlayer = activePlayer;
+  if (!canSwitchPlayer) {
+    // Force display to the player whose shots are visible
+    if (courtState.showShotsPlayer1 && !courtState.showShotsPlayer2) {
+      displayPlayer = "player1";
+    } else if (courtState.showShotsPlayer2 && !courtState.showShotsPlayer1) {
+      displayPlayer = "player2";
+    }
+  }
 
   // Auto-update shot endpoints based on Player 1 position
   useEffect(() => {
@@ -143,8 +197,27 @@ const TennisCourt: React.FC = () => {
     courtState.courtOrientation,
   ]);
 
-  // Handle player 1 double-click for swing toggle
-  const handlePlayer1DoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Cycle swing mode for a player
+  const cycleSwingMode = (playerId: "player1" | "player2") => {
+    if (playerId === "player1") {
+      courtState.setPlayer1Swing((s) => {
+        const next =
+          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
+        return next;
+      });
+      courtState.setHasMovedPlayer1(true);
+    } else {
+      courtState.setPlayer2Swing((s) => {
+        const next =
+          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
+        return next;
+      });
+      courtState.setHasMovedPlayer2(true);
+    }
+  };
+
+  // Handle double-click for swing toggle (both players)
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!hitTestHandlesRef.current) return;
 
     const canvas = e.currentTarget;
@@ -154,17 +227,18 @@ const TennisCourt: React.FC = () => {
 
     const hit = hitTestHandlesRef.current(px, py);
     if (hit === "player1") {
-      courtState.setPlayer1Swing((s) => {
-        const next =
-          s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
-        return next;
-      });
-      courtState.setHasMovedPlayer1(true);
+      cycleSwingMode("player1");
+    } else if (hit === "player2") {
+      cycleSwingMode("player2");
     }
   };
 
-  // Mobile long-press support for swing toggle
-  let longPressTimer: number | null = null;
+  // Touch handling for double-tap (coordinated with drag handling)
+  const touchTimerRef = useRef<number | null>(null);
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastTouchTargetRef = useRef<string | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const touchMovedRef = useRef<boolean>(false);
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!hitTestHandlesRef.current) return;
@@ -175,23 +249,71 @@ const TennisCourt: React.FC = () => {
     const px = touch.clientX - rect.left;
     const py = touch.clientY - rect.top;
 
+    // Store initial touch position
+    touchStartPosRef.current = { x: px, y: py };
+    touchMovedRef.current = false;
+
     const hit = hitTestHandlesRef.current(px, py);
-    if (hit === "player1") {
-      longPressTimer = window.setTimeout(() => {
-        courtState.setPlayer1Swing((s) => {
-          const next =
-            s === "auto" ? "forehand" : s === "forehand" ? "backhand" : "auto";
-          return next;
-        });
-        courtState.setHasMovedPlayer1(true);
-      }, 500);
+    const currentTime = Date.now();
+
+    // Only handle double-tap for players
+    if (hit === "player1" || hit === "player2") {
+      // Check for double-tap (within 300ms and same target)
+      if (
+        currentTime - lastTouchTimeRef.current < 300 &&
+        lastTouchTargetRef.current === hit
+      ) {
+        // Prevent default to avoid conflicts with drag
+        e.preventDefault();
+
+        // Double-tap detected - cycle swing mode
+        cycleSwingMode(hit as "player1" | "player2");
+
+        // Reset to prevent triple-tap
+        lastTouchTimeRef.current = 0;
+        lastTouchTargetRef.current = null;
+        touchStartPosRef.current = null;
+      } else {
+        // First tap - store for potential double-tap
+        lastTouchTimeRef.current = currentTime;
+        lastTouchTargetRef.current = hit;
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!touchStartPosRef.current) return;
+
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const px = touch.clientX - rect.left;
+    const py = touch.clientY - rect.top;
+
+    // Calculate movement distance
+    const moveDistance = Math.hypot(
+      px - touchStartPosRef.current.x,
+      py - touchStartPosRef.current.y
+    );
+
+    // If moved more than 10 pixels, consider it a drag, not a tap
+    if (moveDistance > 10) {
+      touchMovedRef.current = true;
+      // Clear double-tap state since this is a drag
+      lastTouchTimeRef.current = 0;
+      lastTouchTargetRef.current = null;
     }
   };
 
   const handleTouchEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
+    // Reset touch tracking
+    touchStartPosRef.current = null;
+    touchMovedRef.current = false;
+
+    // Clear any existing timer
+    if (touchTimerRef.current) {
+      clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
     }
   };
 
@@ -250,33 +372,56 @@ const TennisCourt: React.FC = () => {
     courtState.setShowOptimal(true);
   };
 
-  // Calculate shot/angle info for stats panel
+  // Calculate shot/angle info for stats panel based on display player
+  const isDisplayingPlayer1 = displayPlayer === "player1";
+  const currentPlayer = isDisplayingPlayer1
+    ? courtState.player1
+    : courtState.player2;
+  const currentShot1 = isDisplayingPlayer1
+    ? courtState.shot1
+    : courtState.shot3;
+  const currentShot2 = isDisplayingPlayer1
+    ? courtState.shot2
+    : courtState.shot4;
+  const currentHandedness = isDisplayingPlayer1
+    ? courtState.player1Handedness
+    : courtState.player2Handedness;
+  const currentSwing = isDisplayingPlayer1
+    ? courtState.player1Swing
+    : courtState.player2Swing;
+  const currentPrevSwing = isDisplayingPlayer1
+    ? courtState.prevPlayer1Swing
+    : courtState.prevPlayer2Swing;
+  const oppositePlayer = isDisplayingPlayer1
+    ? courtState.player2
+    : courtState.player1;
+
   const { vDownLine, vCross, lenDownLine, lenCross } = calculateShotVectors(
-    courtState.player1,
-    courtState.shot1,
-    courtState.shot2
+    currentPlayer,
+    currentShot1,
+    currentShot2
   );
 
-  const lenP2 = calculatePlayerDistance(courtState.player1, courtState.player2);
+  const lenP2 = calculatePlayerDistance(currentPlayer, oppositePlayer);
   const angleDeg = getAngleDeg(vDownLine, vCross);
 
   // Calculate bisector length for stats
-  const resolvedPlayer1Swing =
-    courtState.player1Swing === "auto"
+  const resolvedCurrentSwing =
+    currentSwing === "auto"
       ? resolvePlayerSwing(
-          courtState.player1,
-          courtState.player1Handedness,
+          currentPlayer,
+          currentHandedness,
           courtState.courtOrientation,
-          true,
-          courtState.prevPlayer1Swing
+          isDisplayingPlayer1,
+          currentPrevSwing
         )
-      : courtState.player1Swing;
+      : currentSwing;
 
-  const player1Contact = getContactPoint(
-    courtState.player1,
-    courtState.player1Handedness,
-    resolvedPlayer1Swing,
-    true,
+  const currentContact = getContactPoint(
+    currentPlayer,
+    currentHandedness,
+    resolvedCurrentSwing,
+    isDisplayingPlayer1,
     courtState.courtOrientation,
     courtToPxRef.current,
     pxToCourtRef.current
@@ -284,22 +429,97 @@ const TennisCourt: React.FC = () => {
 
   const bisectorResult = courtToPxRef.current
     ? calculateBisector(
-        player1Contact,
-        courtState.shot1,
-        courtState.shot2,
+        currentContact,
+        currentShot1,
+        currentShot2,
         courtToPxRef.current,
         BG_SIZES[courtState.courtOrientation],
         courtState.courtOrientation,
-        COURT_LENGTH
+        isDisplayingPlayer1 ? COURT_LENGTH : 0
       )
     : null;
 
-  const lenBisector = bisectorResult?.optimalP2
-    ? Math.hypot(
-        bisectorResult.optimalP2.x - courtState.player1.x,
-        bisectorResult.optimalP2.y - courtState.player1.y
-      )
-    : 0;
+  const lenBisector =
+    bisectorResult?.optimalP2 || bisectorResult?.optimalP1
+      ? Math.hypot(
+          (bisectorResult.optimalP2?.x || bisectorResult.optimalP1?.x || 0) -
+            currentPlayer.x,
+          (bisectorResult.optimalP2?.y || bisectorResult.optimalP1?.y || 0) -
+            currentPlayer.y
+        )
+      : 0;
+
+  // Helper function to calculate lateral distance to intercept a shot trajectory
+  const calculateLateralDistanceToTrajectory = (
+    shotStart: { x: number; y: number },
+    shotEnd: { x: number; y: number },
+    playerPos: { x: number; y: number }
+  ) => {
+    // Calculate the trajectory vector
+    const trajectoryVector = {
+      x: shotEnd.x - shotStart.x,
+      y: shotEnd.y - shotStart.y,
+    };
+
+    // Calculate vector from shot start to player
+    const toPlayerVector = {
+      x: playerPos.x - shotStart.x,
+      y: playerPos.y - shotStart.y,
+    };
+
+    // Project the player vector onto the trajectory to find the closest point on the trajectory
+    const trajectoryLength = Math.hypot(trajectoryVector.x, trajectoryVector.y);
+    if (trajectoryLength === 0) return 0;
+
+    const normalizedTrajectory = {
+      x: trajectoryVector.x / trajectoryLength,
+      y: trajectoryVector.y / trajectoryLength,
+    };
+
+    // Calculate the projection length
+    const projectionLength =
+      toPlayerVector.x * normalizedTrajectory.x +
+      toPlayerVector.y * normalizedTrajectory.y;
+
+    // Find the closest point on the trajectory line
+    const closestPoint = {
+      x: shotStart.x + projectionLength * normalizedTrajectory.x,
+      y: shotStart.y + projectionLength * normalizedTrajectory.y,
+    };
+
+    // Calculate the lateral distance (perpendicular distance to the trajectory)
+    const lateralDistance = Math.hypot(
+      playerPos.x - closestPoint.x,
+      playerPos.y - closestPoint.y
+    );
+
+    return lateralDistance;
+  };
+
+  // Calculate lateral distances from opposite player to each shot trajectory
+  const distanceToShot1 = calculateLateralDistanceToTrajectory(
+    currentContact,
+    currentShot1,
+    oppositePlayer
+  );
+  const distanceToShot2 = calculateLateralDistanceToTrajectory(
+    currentContact,
+    currentShot2,
+    oppositePlayer
+  );
+
+  // For bisector, calculate distance to the optimal position line
+  const distanceToBisector =
+    bisectorResult?.optimalP2 || bisectorResult?.optimalP1
+      ? calculateLateralDistanceToTrajectory(
+          currentContact,
+          {
+            x: bisectorResult.optimalP2?.x || bisectorResult.optimalP1?.x || 0,
+            y: bisectorResult.optimalP2?.y || bisectorResult.optimalP1?.y || 0,
+          },
+          oppositePlayer
+        )
+      : 0;
 
   return (
     <div className={tcStyles.pageRoot}>
@@ -327,6 +547,8 @@ const TennisCourt: React.FC = () => {
         setPlayer2Handedness={courtState.setPlayer2Handedness}
         player2Swing={courtState.player2Swing}
         setPlayer2Swing={courtState.setPlayer2Swing}
+        shotType={shotType}
+        setShotType={setShotType}
         setHasMovedPlayer1={courtState.setHasMovedPlayer1}
         setHasMovedPlayer2={courtState.setHasMovedPlayer2}
         feedback={courtState.feedback}
@@ -346,6 +568,19 @@ const TennisCourt: React.FC = () => {
           lenBisector={lenBisector}
           lenP2={lenP2}
           angleDeg={angleDeg}
+          distanceToShot1={distanceToShot1}
+          distanceToShot2={distanceToShot2}
+          distanceToBisector={distanceToBisector}
+          displayPlayer={displayPlayer}
+          shotType={shotType}
+          contactPoint={currentContact}
+          shot1Endpoint={currentShot1}
+          shot2Endpoint={currentShot2}
+          bisectorEndpoint={
+            bisectorResult?.optimalP2 ||
+            bisectorResult?.optimalP1 || { x: 0, y: 0 }
+          }
+          opponentPosition={oppositePlayer}
           visible={courtState.showStatsPanel}
           onClose={() => courtState.setShowStatsPanel(false)}
         />
@@ -399,15 +634,32 @@ const TennisCourt: React.FC = () => {
             )
           }
           onPointerUp={dragHandling.handlePointerUp}
-          onMouseMove={(e) =>
+          onMouseMove={(e) => {
             dragHandling.handleMouseMove(
               e,
               { current: e.currentTarget as HTMLCanvasElement },
               hitTestHandlesRef.current
-            )
-          }
-          onDoubleClick={handlePlayer1DoubleClick}
+            );
+
+            // Track hovering for stats panel
+            if (!hitTestHandlesRef.current) return;
+            const canvas = e.currentTarget as HTMLCanvasElement;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const px = (e.clientX - rect.left) * scaleX;
+            const py = (e.clientY - rect.top) * scaleY;
+
+            const hit = hitTestHandlesRef.current(px, py);
+            if (hit === "player1" || hit === "player2") {
+              setHoveredPlayer(hit);
+            } else {
+              setHoveredPlayer(null);
+            }
+          }}
+          onDoubleClick={handleDoubleClick}
           onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTransformsReady={handleTransformsReady}
         />
