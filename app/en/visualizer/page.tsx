@@ -16,7 +16,7 @@ export default function Visualizer() {
           <Link href="/en" className={styles.backButton}>
             ← Back to Theory
           </Link>
-          <h1 className={styles.title}>Tennis Angle Theory Visualizer</h1>
+          {/* <h1 className={styles.title}>Tennis Angle Theory Visualizer</h1> */}
         </header>
 
         <main className={styles.main}>

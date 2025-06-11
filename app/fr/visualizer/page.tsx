@@ -14,11 +14,9 @@ export default function Visualizer() {
       <div className={styles.container}>
         <header className={styles.header}>
           <Link href="/fr" className={styles.backButton}>
-            ← Retour à la Théorie
+            ⬅️ Retour à la théorie
           </Link>
-          <h1 className={styles.title}>
-            Visualiseur de la Théorie des Angles au Tennis
-          </h1>
+          {/* <h1 className={styles.title}>Simulateur de la Théorie des Angles</h1> */}
         </header>
 
         <main className={styles.main}>

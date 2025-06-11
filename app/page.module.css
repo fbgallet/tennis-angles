@@ -1,6 +1,6 @@
 .main {
   min-height: 100vh;
-  padding: 2rem;
+  padding: 4rem 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,22 +15,66 @@
 .header {
   text-align: center;
   margin-bottom: 4rem;
+  position: relative;
 }
 
 .title {
   font-size: 3.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  background: linear-gradient(135deg, #3b82f6 45%, #fbbf24 50%, #1e40af 65%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.protractorIcon {
+  -webkit-text-fill-color: initial;
 }
 
 .subtitle {
   font-size: 1.5rem;
   color: var(--muted-foreground);
   font-style: italic;
+  position: relative;
+}
+
+.protractorIcon {
+  display: inline-block;
+  margin-right: 0.75rem;
+  font-size: 0.9em;
+  opacity: 0.9;
+  transform: rotate(-15deg);
+  transition: transform 0.3s ease;
+}
+
+.title:hover .protractorIcon {
+  transform: rotate(0deg) scale(1.1);
+}
+
+.compassIcon {
+  display: inline-block;
+  margin-right: 1rem;
+  font-size: 1.2em;
+  opacity: 0.8;
+  transition: all 0.4s ease;
+  transform: rotate(0deg);
+}
+
+.setSquareIcon {
+  display: inline-block;
+  margin-left: 1rem;
+  font-size: 1.2em;
+  opacity: 0.8;
+  transition: all 0.4s ease;
+  transform: rotate(0deg);
+}
+
+.title:hover .protractorIcon {
+  transform: rotate(1080deg) scale(1.2);
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.6));
 }
 
 .content {
@@ -38,6 +82,103 @@
   grid-template-columns: 2fr 1fr;
   gap: 4rem;
   align-items: start;
+}
+
+.imageShowcase {
+  background: var(--card);
+  padding: 2rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.imageShowcase::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3b82f6 0%, #fbbf24 50%, #1e40af 100%);
+}
+
+.imageShowcase h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.imageShowcase h3::before {
+  content: "📊";
+}
+
+.imageContainer {
+  position: relative;
+  display: inline-block;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.imageContainer:hover {
+  transform: scale(1.02);
+  border-color: #fbbf24;
+  box-shadow: 0 8px 25px rgba(251, 191, 36, 0.2);
+}
+
+.exampleImage {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+}
+
+.imageOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(251, 191, 36, 0.1) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.imageContainer:hover .imageOverlay {
+  opacity: 1;
+}
+
+.imageCaption {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.tennisIcon {
+  display: inline-block;
+  margin: 0 0.25rem;
+  opacity: 0.8;
 }
 
 .theory h2 {
@@ -80,10 +221,10 @@
 }
 
 .keyPoints li::before {
-  content: "→";
+  content: "🎾";
   position: absolute;
   left: 0;
-  color: var(--primary);
+  color: #fbbf24;
   font-weight: bold;
 }
 
@@ -192,7 +333,7 @@
 
 .button {
   display: inline-block;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  background: var(--primary);
   color: var(--primary-foreground);
   padding: 1rem 2rem;
   border-radius: 8px;
@@ -202,11 +343,33 @@
   transition: all 0.3s ease;
   border: none;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.button:hover::before {
+  left: 100%;
 }
 
 .button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 10px 25px rgba(251, 191, 36, 0.4);
 }
 
 .button:active {
@@ -216,7 +379,7 @@
 /* Responsive design */
 @media (max-width: 768px) {
   .main {
-    padding: 1rem;
+    padding: 3rem 1rem;
   }
 
   .title {

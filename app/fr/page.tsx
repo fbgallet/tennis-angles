@@ -132,19 +132,27 @@ export default function FrenchHome() {
       <main className={styles.main}>
         <div className={styles.container}>
           <header className={styles.header}>
-            <h1 className={styles.title}>Théorie des Angles au Tennis</h1>
-            <p className={styles.subtitle}>par René Cochet</p>
+            <h1 className={styles.title}>
+              <span className={styles.protractorIcon}>🎾</span>
+              Théorie des Angles au Tennis
+            </h1>
+            <p className={styles.subtitle}>
+              <span className={styles.compassIcon}>📐 </span>
+              Maîtrisez le Positionnement avec la Précision Mathématique
+              <span className={styles.setSquareIcon}> ✅</span>
+            </p>
           </header>
 
           <section className={styles.content}>
             <div className={styles.theory}>
               <h2>Comprendre la Théorie des Angles</h2>
               <p>
-                La Théorie des Angles au Tennis de René Cochet est un concept
-                stratégique fondamental qui a révolutionné le positionnement et
-                la sélection des coups au tennis. La théorie démontre que la
-                position optimale sur le court est déterminée par la bissectrice
-                des angles des coups possibles de votre adversaire.
+                La Théorie des Angles de René Cochet est un concept stratégique
+                fondamental pour optimiser son positionnement et la sélection
+                des coups au tennis. Elle offre une méthode simple et efficace
+                pour se repositionner après chaque coup en s'appuyant sur des
+                principes géométriques au lieu de se fier à une anticipation
+                hasardeuse des intentions de son adversaire.
               </p>
 
               <div className={styles.keyPoints}>
@@ -152,47 +160,57 @@ export default function FrenchHome() {
                 <ul>
                   <li>
                     <strong>Positionnement sur la Bissectrice :</strong>{" "}
-                    Positionnez-vous sur la bissectrice des deux coups les plus
-                    extrêmes possibles de votre adversaire pour minimiser la
-                    couverture du court.
+                    Positionnez-vous sur la bissectrice des deux meilleurs coups
+                    possibles de votre adversaire pour minimiser la couverture
+                    du court, quelque soit le prochain coup de votre adversaire.
                   </li>
                   <li>
-                    <strong>Stratégie de Distance Égale :</strong> En vous
+                    <strong>Stratégie de défence active :</strong> En vous
                     positionnant sur la bissectrice, vous assurez une distance
                     égale pour défendre contre les coups croisés et les coups le
-                    long de la ligne.
+                    long de la ligne, évitant ainsi de laisser une trop grande
+                    ouverture à votre adversaire sur l'un des côtés.
                   </li>
                   <li>
-                    <strong>Géométrie du Court :</strong> Comprendre les angles
-                    du court vous permet d'anticiper et de réagir plus
-                    efficacement aux coups de votre adversaire.
+                    <strong>Simplicité :</strong> En pratique, il suffit de se
+                    positionner proche du centre du court, côté opposé à
+                    l'adversaire lorsqu'on joue en fond de court, du même côté
+                    que l'adversaire lorsqu'on est proche du filet.
                   </li>
                 </ul>
               </div>
 
               <div className={styles.importance}>
-                <h3>Pourquoi C'est Important :</h3>
+                <h3>Pourquoi c'est important :</h3>
                 <p>
                   Un positionnement approprié basé sur la théorie des angles
                   peut considérablement améliorer vos capacités défensives et
-                  votre couverture du court. Au lieu de deviner où votre
-                  adversaire va frapper, vous vous positionnez mathématiquement
-                  pour avoir la meilleure chance d'atteindre n'importe quel coup
-                  dans sa gamme de possibilités.
+                  votre couverture du court. Vous augmentez vos chances
+                  d'atteindre n'importe quel coup de l'adversaire et vous
+                  délestez votre esprit de suppositions sur les intentions de
+                  l'adversaire, pour concentrer votre attention sur ce qui est
+                  réellement sous vos yeux.
+                </p>
+                <p>
+                  Mieux encore, vous savez où vous replacer pour votre coup
+                  suivant dès que votre intention pour le coup précédent est
+                  claire. Vous avez ainsi le contrôle pour minimiser vos
+                  replacements et économiser vos forces pour les coups décisifs.
                 </p>
               </div>
 
               <div className={styles.evidence}>
-                <h3>Théorie Basée sur des Preuves :</h3>
+                <h3>Une théorie fondée scientifiquement :</h3>
                 <p>
-                  La Théorie des Angles au Tennis n'est pas seulement
-                  théorique—elle est soutenue par la recherche scientifique. Des
-                  études récentes ont validé les principes mathématiques
-                  derrière le positionnement optimal du court et les stratégies
-                  défensives au tennis. Dans cette étude impliquant 23 joueurs
-                  professionnels parmi les meilleurs au monde, il "semble que
-                  plus les joueurs sont expérimentés, plus leur application de
-                  cette stratégie devient précise."
+                  La Théorie des Angles n'est pas seulement une hypothèse
+                  mathématique — elle est validée par la recherche scientifique.
+                  Une étude récente publiée dans la revue Nature a permis
+                  d'établir que parmis plusieurs stratégies de positionnement
+                  possibles, c'est bien la Théorie des Angles qui décrit le
+                  mieux le positionnement des meilleurs joueurs. Dans cette
+                  étude impliquant 23 joueurs professionnels dont les meilleurs
+                  mondiaux, il "semble que plus les joueurs sont expérimentés,
+                  plus leur application de cette stratégie devient précise."
                 </p>
                 <p>
                   <a
@@ -209,25 +227,46 @@ export default function FrenchHome() {
               </div>
             </div>
 
+            <div className={styles.imageShowcase}>
+              <h3>Visualisation Interactive</h3>
+              <Link href="/fr/visualizer" className={styles.imageContainer}>
+                <img
+                  src="/angle-theory-example.png"
+                  alt="Exemple de la théorie des angles au tennis - Visualisation interactive montrant le positionnement optimal sur court"
+                  className={styles.exampleImage}
+                />
+                <div className={styles.imageOverlay}>
+                  <span>🎾 Cliquez pour essayer le simulateur 🎾</span>
+                </div>
+              </Link>
+              <p className={styles.imageCaption}>
+                Découvrez comment la théorie des angles fonctionne en pratique
+                avec notre simulateur interactif.
+                <span className={styles.tennisIcon}>🎯</span>
+                Positionnez les joueurs et observez le positionnement optimal en
+                temps réel.
+              </p>
+            </div>
+
             <div className={styles.cta}>
               <h3>Expérimentez la Théorie</h3>
               <p>
-                Utilisez notre visualiseur interactif pour voir la théorie des
+                Utilisez notre simulateur interactif pour voir la théorie des
                 angles en action. Positionnez les joueurs, ajustez les angles de
                 frappe et découvrez le positionnement optimal du court.
               </p>
               <Link href="/fr/visualizer" className={styles.button}>
-                Lancer le Visualiseur
+                Lancer le simulateur d'angles
               </Link>
             </div>
 
             <div className={styles.developer}>
               <h3>À Propos du Développeur</h3>
               <p>
-                Ce visualiseur interactif de la théorie des angles au tennis a
-                été développé par <strong>Fabrice Gallet</strong>, passionné par
-                la combinaison de la science du sport et de la technologie
-                interactive.
+                Ce simulateur interactif de la théorie des angles au tennis a
+                été développé par <strong>Fabrice Gallet</strong>, développeur
+                fullstack React/Typescript/Next.js, amateur de belles théories
+                appréciables en pratique !
               </p>
               <div className={styles.developerLinks}>
                 <a

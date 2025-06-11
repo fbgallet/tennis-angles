@@ -9,6 +9,7 @@ import type {
 } from "../types/tennis";
 import { BG_SIZES } from "../constants/tennis";
 import { COURT_BG_IMAGES } from "../constants/court-images";
+import { getCourtTheme, ANIMATION_TIMINGS } from "../constants/tennis-colors";
 import { createCoordinateTransforms } from "../utils/coordinates";
 import { drawPlayerHandle, getPlayerArmTheta } from "./PlayerHandle";
 import {
@@ -96,8 +97,73 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bgImg, setBgImg] = useState<HTMLImageElement | null>(null);
   const [bgLoaded, setBgLoaded] = useState(0);
+  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [animationFrame, setAnimationFrame] = useState(0);
 
   const BG_SIZE = BG_SIZES[courtOrientation];
+  const courtTheme = getCourtTheme(courtType);
+
+  // Animation loop for pulsing effects
+  useEffect(() => {
+    let animationId: number;
+
+    const animate = () => {
+      setAnimationFrame(Date.now());
+      animationId = requestAnimationFrame(animate);
+    };
+
+    if (hoveredElement || isDragging) {
+      animate();
+    }
+
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
+  }, [hoveredElement, isDragging]);
+
+  // Calculate pulsing animation values
+  const getPulseValues = (timestamp: number) => {
+    const progress =
+      (timestamp % ANIMATION_TIMINGS.PULSE_DURATION) /
+      ANIMATION_TIMINGS.PULSE_DURATION;
+    const pulseScale =
+      ANIMATION_TIMINGS.PULSE_SCALE_MIN +
+      (ANIMATION_TIMINGS.PULSE_SCALE_MAX - ANIMATION_TIMINGS.PULSE_SCALE_MIN) *
+        (0.5 + 0.5 * Math.sin(progress * Math.PI * 2));
+    const glowIntensity =
+      ANIMATION_TIMINGS.GLOW_INTENSITY_MIN +
+      (ANIMATION_TIMINGS.GLOW_INTENSITY_MAX -
+        ANIMATION_TIMINGS.GLOW_INTENSITY_MIN) *
+        (0.5 + 0.5 * Math.sin(progress * Math.PI * 2));
+    return { pulseScale, glowIntensity };
+  };
+
+  // Create gradient for shot lines
+  const createShotGradient = (
+    ctx: CanvasRenderingContext2D,
+    startPx: { x: number; y: number },
+    endPx: { x: number; y: number },
+    colors: string[]
+  ) => {
+    // For single color, just return the color directly
+    if (colors.length === 1) {
+      return colors[0];
+    }
+
+    const gradient = ctx.createLinearGradient(
+      startPx.x,
+      startPx.y,
+      endPx.x,
+      endPx.y
+    );
+    colors.forEach((color, index) => {
+      gradient.addColorStop(index / (colors.length - 1), color);
+    });
+    return gradient;
+  };
 
   // Load court background image when courtType or orientation changes
   useEffect(() => {
@@ -279,27 +345,55 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       y: player2Px.y + fullArmPxPlayer2 * Math.sin(player2ArmTheta),
     };
 
-    // Player 1 shots
+    // Get animation values for pulsing effects
+    const { pulseScale, glowIntensity } = getPulseValues(animationFrame);
+    const shouldAnimate =
+      hoveredElement === "player1" ||
+      hoveredElement === "player2" ||
+      isDragging;
+
+    // Player 1 shots with tennis-themed colors and animations
     if (showShotsPlayer1) {
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 3;
+      const shotGradient1 = createShotGradient(
+        ctx,
+        player1ContactPx,
+        shot1Px,
+        courtTheme.shots.player1.gradient
+      );
+      const shotGradient2 = createShotGradient(
+        ctx,
+        player1ContactPx,
+        shot2Px,
+        courtTheme.shots.player1.gradient
+      );
+
+      ctx.save();
+      if (shouldAnimate && hoveredElement === "player1") {
+        ctx.shadowColor = courtTheme.shots.player1.primary;
+        ctx.shadowBlur = 15 * glowIntensity;
+        ctx.lineWidth = 4 * pulseScale;
+      } else {
+        ctx.lineWidth = 4;
+      }
+
+      // Shot 1
+      ctx.strokeStyle = shotGradient1;
       ctx.beginPath();
       ctx.moveTo(player1ContactPx.x, player1ContactPx.y);
       ctx.lineTo(shot1Px.x, shot1Px.y);
       ctx.stroke();
+
+      // Shot 2
+      ctx.strokeStyle = shotGradient2;
       ctx.beginPath();
       ctx.moveTo(player1ContactPx.x, player1ContactPx.y);
       ctx.lineTo(shot2Px.x, shot2Px.y);
       ctx.stroke();
+      ctx.restore();
     }
 
-    // Player 1 bisector
+    // Player 1 bisector with tennis-themed colors and animations
     if (showBisectorPlayer1) {
-      ctx.strokeStyle = "orange";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(player1ContactPx.x, player1ContactPx.y);
       const bisectorResult = calculateBisector(
         player1ContactPoint,
         shot1,
@@ -309,35 +403,72 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
         courtOrientation,
         COURT_LENGTH
       );
+
+      ctx.save();
+      ctx.strokeStyle = courtTheme.bisectors.player1.primary;
+      if (shouldAnimate && hoveredElement === "player1") {
+        ctx.shadowColor = courtTheme.bisectors.player1.glow;
+        ctx.shadowBlur = 20 * glowIntensity;
+        ctx.lineWidth = 4 * pulseScale;
+        ctx.setLineDash([12 * pulseScale, 8 * pulseScale]);
+      } else {
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 6]);
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(player1ContactPx.x, player1ContactPx.y);
       ctx.lineTo(
         bisectorResult.bisectorEndPx.x,
         bisectorResult.bisectorEndPx.y
       );
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.restore();
     }
 
-    // Player 2 shots
+    // Player 2 shots with tennis-themed colors and animations
     if (showShotsPlayer2) {
-      ctx.strokeStyle = "green";
-      ctx.lineWidth = 3;
+      const shotGradient3 = createShotGradient(
+        ctx,
+        player2ContactPx,
+        shot3Px,
+        courtTheme.shots.player2.gradient
+      );
+      const shotGradient4 = createShotGradient(
+        ctx,
+        player2ContactPx,
+        shot4Px,
+        courtTheme.shots.player2.gradient
+      );
+
+      ctx.save();
+      if (shouldAnimate && hoveredElement === "player2") {
+        ctx.shadowColor = courtTheme.shots.player2.primary;
+        ctx.shadowBlur = 15 * glowIntensity;
+        ctx.lineWidth = 4 * pulseScale;
+      } else {
+        ctx.lineWidth = 4;
+      }
+
+      // Shot 3
+      ctx.strokeStyle = shotGradient3;
       ctx.beginPath();
       ctx.moveTo(player2ContactPx.x, player2ContactPx.y);
       ctx.lineTo(shot3Px.x, shot3Px.y);
       ctx.stroke();
+
+      // Shot 4
+      ctx.strokeStyle = shotGradient4;
       ctx.beginPath();
       ctx.moveTo(player2ContactPx.x, player2ContactPx.y);
       ctx.lineTo(shot4Px.x, shot4Px.y);
       ctx.stroke();
+      ctx.restore();
     }
 
-    // Player 2 bisector
+    // Player 2 bisector with tennis-themed colors and animations
     if (showBisectorPlayer2) {
-      ctx.strokeStyle = "cyan";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 8]);
-      ctx.beginPath();
-      ctx.moveTo(player2ContactPx.x, player2ContactPx.y);
       const bisectorResult = calculateBisector(
         player2ContactPoint,
         shot3,
@@ -347,20 +478,36 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
         courtOrientation,
         0
       );
+
+      ctx.save();
+      ctx.strokeStyle = courtTheme.bisectors.player2.primary;
+      if (shouldAnimate && hoveredElement === "player2") {
+        ctx.shadowColor = courtTheme.bisectors.player2.glow;
+        ctx.shadowBlur = 20 * glowIntensity;
+        ctx.lineWidth = 4 * pulseScale;
+        ctx.setLineDash([12 * pulseScale, 8 * pulseScale]);
+      } else {
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 6]);
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(player2ContactPx.x, player2ContactPx.y);
       ctx.lineTo(
         bisectorResult.bisectorEndPx.x,
         bisectorResult.bisectorEndPx.y
       );
       ctx.stroke();
       ctx.setLineDash([]);
+      ctx.restore();
     }
 
-    // Draw players
+    // Draw players with tennis-themed colors
     drawPlayerHandle({
       ctx,
       x: player1Px.x,
       y: player1Px.y,
-      color: "blue",
+      color: courtTheme.player1.primary,
       handedness: player1Handedness,
       scale: pxPerMeter,
       swing: resolvedPlayer1Swing,
@@ -372,7 +519,7 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       ctx,
       x: player2Px.x,
       y: player2Px.y,
-      color: "purple",
+      color: courtTheme.player2.primary,
       handedness: player2Handedness,
       scale: pxPerMeter,
       swing: resolvedPlayer2Swing,
@@ -380,30 +527,50 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       orientation: courtOrientation,
     });
 
-    // Draw rackets
+    // Draw rackets with tennis-themed colors
     drawRacket(
       ctx,
       visualArmEndPxPlayer1,
       player1ArmTheta,
-      "blue",
+      courtTheme.rackets.player1,
       resolvedPlayer1Swing
     );
     drawRacket(
       ctx,
       visualArmEndPxPlayer2,
       player2ArmTheta,
-      "purple",
+      courtTheme.rackets.player2,
       resolvedPlayer2Swing
     );
 
-    // Draw shot handles
+    // Draw shot handles with tennis-themed colors
     if (showShotsPlayer1) {
-      drawShotHandle(ctx, shot1Px.x, shot1Px.y, "red");
-      drawShotHandle(ctx, shot2Px.x, shot2Px.y, "red");
+      drawShotHandle(
+        ctx,
+        shot1Px.x,
+        shot1Px.y,
+        courtTheme.shots.player1.primary
+      );
+      drawShotHandle(
+        ctx,
+        shot2Px.x,
+        shot2Px.y,
+        courtTheme.shots.player1.primary
+      );
     }
     if (showShotsPlayer2) {
-      drawShotHandle(ctx, shot3Px.x, shot3Px.y, "green");
-      drawShotHandle(ctx, shot4Px.x, shot4Px.y, "green");
+      drawShotHandle(
+        ctx,
+        shot3Px.x,
+        shot3Px.y,
+        courtTheme.shots.player2.primary
+      );
+      drawShotHandle(
+        ctx,
+        shot4Px.x,
+        shot4Px.y,
+        courtTheme.shots.player2.primary
+      );
     }
 
     // Show optimal positions
@@ -429,17 +596,28 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       );
 
       if (player1BisectorResult.optimalP2Px) {
-        // Draw optimal P2 position (for Player 1's shots)
+        // Draw optimal P2 position (for Player 1's shots) with tennis-themed colors
         ctx.save();
-        ctx.strokeStyle = "#fbbf24"; // amber-400
-        ctx.fillStyle = "rgba(251, 191, 36, 0.2)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = courtTheme.optimal.player1.primary;
+        ctx.fillStyle = courtTheme.optimal.player1.glow
+          .replace(")", ", 0.2)")
+          .replace("rgb", "rgba");
+
+        if (shouldAnimate) {
+          ctx.shadowColor = courtTheme.optimal.player1.glow;
+          ctx.shadowBlur = 25 * glowIntensity;
+          ctx.lineWidth = 4 * pulseScale;
+          ctx.setLineDash([8 * pulseScale, 4 * pulseScale]);
+        } else {
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+        }
+
         ctx.beginPath();
         ctx.arc(
           player1BisectorResult.optimalP2Px.x,
           player1BisectorResult.optimalP2Px.y,
-          20,
+          shouldAnimate ? 22 * pulseScale : 20,
           0,
           2 * Math.PI
         );
@@ -447,10 +625,14 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Add label
-        ctx.fillStyle = "#92400e";
+        // Add label with tennis-themed styling
+        ctx.fillStyle = courtTheme.optimal.player1.primary;
         ctx.font = "bold 12px sans-serif";
         ctx.textAlign = "center";
+        if (shouldAnimate) {
+          ctx.shadowColor = courtTheme.optimal.player1.glow;
+          ctx.shadowBlur = 10 * glowIntensity;
+        }
         ctx.fillText(
           "Optimal P2",
           player1BisectorResult.optimalP2Px.x,
@@ -460,17 +642,28 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       }
 
       if (player2BisectorResult.optimalP1Px) {
-        // Draw optimal P1 position (for Player 2's shots)
+        // Draw optimal P1 position (for Player 2's shots) with tennis-themed colors
         ctx.save();
-        ctx.strokeStyle = "#10b981"; // emerald-500
-        ctx.fillStyle = "rgba(16, 185, 129, 0.2)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = courtTheme.optimal.player2.primary;
+        ctx.fillStyle = courtTheme.optimal.player2.glow
+          .replace(")", ", 0.2)")
+          .replace("rgb", "rgba");
+
+        if (shouldAnimate) {
+          ctx.shadowColor = courtTheme.optimal.player2.glow;
+          ctx.shadowBlur = 25 * glowIntensity;
+          ctx.lineWidth = 4 * pulseScale;
+          ctx.setLineDash([8 * pulseScale, 4 * pulseScale]);
+        } else {
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+        }
+
         ctx.beginPath();
         ctx.arc(
           player2BisectorResult.optimalP1Px.x,
           player2BisectorResult.optimalP1Px.y,
-          20,
+          shouldAnimate ? 22 * pulseScale : 20,
           0,
           2 * Math.PI
         );
@@ -478,10 +671,14 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Add label
-        ctx.fillStyle = "#047857";
+        // Add label with tennis-themed styling
+        ctx.fillStyle = courtTheme.optimal.player2.primary;
         ctx.font = "bold 12px sans-serif";
         ctx.textAlign = "center";
+        if (shouldAnimate) {
+          ctx.shadowColor = courtTheme.optimal.player2.glow;
+          ctx.shadowBlur = 10 * glowIntensity;
+        }
         ctx.fillText(
           "Optimal P1",
           player2BisectorResult.optimalP1Px.x,
@@ -491,6 +688,66 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       }
     }
   }
+
+  // Helper function to detect which element is under the mouse
+  const detectHoveredElement = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const anchors = createCoordinateTransforms(
+      canvasSize.width,
+      canvasSize.height,
+      courtOrientation
+    );
+
+    const player1Px = anchors.courtToPx(player1);
+    const player2Px = anchors.courtToPx(player2);
+
+    // Check if mouse is over player 1 (within HANDLE_RADIUS)
+    const distToPlayer1 = Math.sqrt(
+      (x - player1Px.x) ** 2 + (y - player1Px.y) ** 2
+    );
+    if (distToPlayer1 <= HANDLE_RADIUS + 10) {
+      return "player1";
+    }
+
+    // Check if mouse is over player 2 (within HANDLE_RADIUS)
+    const distToPlayer2 = Math.sqrt(
+      (x - player2Px.x) ** 2 + (y - player2Px.y) ** 2
+    );
+    if (distToPlayer2 <= HANDLE_RADIUS + 10) {
+      return "player2";
+    }
+
+    return null;
+  };
+
+  // Enhanced mouse move handler with hover detection
+  const handleEnhancedMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Call the original mouse move handler
+    onMouseMove(e);
+
+    // Detect hover state
+    const hoveredEl = detectHoveredElement(e);
+    setHoveredElement(hoveredEl);
+  };
+
+  // Enhanced pointer down handler for drag detection
+  const handleEnhancedPointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
+    onPointerDown(e);
+  };
+
+  // Enhanced pointer up handler
+  const handleEnhancedPointerUp = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    setHoveredElement(null);
+    onPointerUp(e);
+  };
 
   // Main drawing effect
   useEffect(() => {
@@ -530,6 +787,10 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
     player1Swing,
     player2Swing,
     courtOrientation,
+    courtType,
+    hoveredElement,
+    isDragging,
+    animationFrame,
   ]);
 
   return (
@@ -544,10 +805,10 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
           : tcStyles.courtCanvasLandscape)
       }
       tabIndex={0}
-      onPointerDown={onPointerDown}
+      onPointerDown={handleEnhancedPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onMouseMove={onMouseMove}
+      onPointerUp={handleEnhancedPointerUp}
+      onMouseMove={handleEnhancedMouseMove}
       onDoubleClick={onDoubleClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}

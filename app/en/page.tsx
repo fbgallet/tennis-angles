@@ -128,8 +128,15 @@ export default function EnglishHome() {
       <main className={styles.main}>
         <div className={styles.container}>
           <header className={styles.header}>
-            <h1 className={styles.title}>Tennis Angle Theory</h1>
-            <p className={styles.subtitle}>by René Cochet</p>
+            <h1 className={styles.title}>
+              <span className={styles.protractorIcon}>🎾</span> Tennis Angle
+              Theory
+            </h1>
+            <p className={styles.subtitle}>
+              <span className={styles.compassIcon}>📐 </span>
+              Master Court Positioning with Mathematical Precision
+              <span className={styles.setSquareIcon}> ✅</span>
+            </p>
           </header>
 
           <section className={styles.content}>
@@ -138,9 +145,9 @@ export default function EnglishHome() {
               <p>
                 René Cochet's Tennis Angle Theory is a fundamental strategic
                 concept that revolutionized tennis positioning and shot
-                selection. The theory demonstrates that the optimal position on
-                the court is determined by the angle bisector of your opponent's
-                possible shots.
+                selection. It provides a simple and effective method to
+                reposition after each move, relying on geometric principles
+                instead of guessing the opponent’s intentions.
               </p>
 
               <div className={styles.keyPoints}>
@@ -148,18 +155,23 @@ export default function EnglishHome() {
                 <ul>
                   <li>
                     <strong>Angle Bisector Positioning:</strong> Position
-                    yourself on the angle bisector of your opponent's two most
-                    extreme possible shots to minimize court coverage.
+                    yourself on the bisector of your opponent's two best
+                    possible shots to minimize court coverage, no matter what
+                    their next shot is.
                   </li>
                   <li>
-                    <strong>Equal Distance Strategy:</strong> By positioning on
-                    the bisector, you ensure equal distance to defend against
-                    both cross-court and down-the-line shots.
+                    <strong>Active defense strategy:</strong> By positioning
+                    yourself on the bisector, you maintain an equal distance to
+                    defend against cross shots and shots along the line, thus
+                    preventing your opponent from having too much open space on
+                    either side.
                   </li>
                   <li>
-                    <strong>Court Geometry:</strong> Understanding court angles
-                    allows you to anticipate and react more efficiently to your
-                    opponent's shots.
+                    <strong>Simplicity:</strong> In practice, you just need to
+                    position yourself near the center of the court, on the
+                    opposite side from your opponent when playing at the
+                    baseline, and on the same side as your opponent when you are
+                    close to the net.
                   </li>
                 </ul>
               </div>
@@ -167,11 +179,17 @@ export default function EnglishHome() {
               <div className={styles.importance}>
                 <h3>Why It Matters:</h3>
                 <p>
-                  Proper positioning based on angle theory can dramatically
-                  improve your defensive capabilities and court coverage.
-                  Instead of guessing where your opponent will hit, you position
-                  yourself mathematically to have the best chance of reaching
-                  any shot within their range of possibilities.
+                  Proper positioning based on angle theory can greatly improve
+                  your defensive skills and court coverage. It increases your
+                  chances of reaching any opponent's shot and frees your mind
+                  from guessing their intentions, allowing you to focus on
+                  what's actually happening in front of you.
+                </p>
+                <p>
+                  Even better, you know where to position yourself for your next
+                  shot as soon as your intention for the previous shot is clear.
+                  This way you have control to minimize your repositioning and
+                  save your energy for the decisive shots.
                 </p>
               </div>
 
@@ -179,9 +197,10 @@ export default function EnglishHome() {
                 <h3>Evidence-Based Theory:</h3>
                 <p>
                   The Tennis Angle Theory is not just theoretical—it's backed by
-                  scientific research. Recent studies have validated the
-                  mathematical principles behind optimal court positioning and
-                  defensive strategies in tennis. In this study involving 23
+                  scientific research. A recent study published in the journal
+                  Nature established that among several possible positioning
+                  strategies, it is indeed Angle Theory that best describes the
+                  positioning of top players. In this study involving 23
                   professional players among the world's best, it "appears that
                   the more experienced the players are, the more precise their
                   application of this strategy becomes."
@@ -201,6 +220,26 @@ export default function EnglishHome() {
               </div>
             </div>
 
+            <div className={styles.imageShowcase}>
+              <h3>Interactive Visualization</h3>
+              <Link href="/en/visualizer" className={styles.imageContainer}>
+                <img
+                  src="/angle-theory-example.png"
+                  alt="Tennis angle theory example - Interactive visualization showing optimal court positioning"
+                  className={styles.exampleImage}
+                />
+                <div className={styles.imageOverlay}>
+                  <span>🎾 Click to try the visualizer 🎾</span>
+                </div>
+              </Link>
+              <p className={styles.imageCaption}>
+                Discover how angle theory works in practice with our interactive
+                visualizer.
+                <span className={styles.tennisIcon}>🎯</span>
+                Position players and observe optimal positioning in real-time.
+              </p>
+            </div>
+
             <div className={styles.cta}>
               <h3>Experience the Theory</h3>
               <p>
@@ -217,8 +256,9 @@ export default function EnglishHome() {
               <h3>About the Developer</h3>
               <p>
                 This interactive tennis angle theory visualizer was developed by{" "}
-                <strong>Fabrice Gallet</strong>, passionate about combining
-                sports science with interactive technology.
+                <strong>Fabrice Gallet</strong>, Fullstack developer
+                specializing in React/TypeScript/Next.js, a fan of elegant
+                theories that work well in practice!
               </p>
               <div className={styles.developerLinks}>
                 <a

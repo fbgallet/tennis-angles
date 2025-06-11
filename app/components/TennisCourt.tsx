@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import ShotInfoPanel from "./ShotInfoPanel";
 import BurgerMenu from "./BurgerMenu";
 import CourtCanvas from "./CourtCanvas";
+import CanvasControls from "./CanvasControls";
 import { useCourtState } from "../hooks/useCourtState";
 import { useDragHandling } from "../hooks/useDragHandling";
 import { useCanvasSize } from "../hooks/useCanvasSize";
@@ -409,6 +410,22 @@ const TennisCourt: React.FC = () => {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           onTransformsReady={handleTransformsReady}
+        />
+
+        {/* Canvas Controls Overlay */}
+        <CanvasControls
+          courtOrientation={courtState.courtOrientation}
+          onOrientationToggle={() => {
+            courtState.setCourtOrientation(
+              courtState.courtOrientation === "portrait"
+                ? "landscape"
+                : "portrait"
+            );
+          }}
+          showStatsPanel={courtState.showStatsPanel}
+          onStatsToggle={() =>
+            courtState.setShowStatsPanel(!courtState.showStatsPanel)
+          }
         />
       </div>
     </div>
