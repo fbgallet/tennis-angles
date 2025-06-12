@@ -186,38 +186,41 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
           ) => {
             const ballSpeed = getBallSpeed(shotType);
             const curveFactor = getCurveFactor(shotType);
-            
+
             // Calculate the trajectory vector
             const trajectoryVector = {
               x: shotEnd.x - shotStart.x,
               y: shotEnd.y - shotStart.y,
             };
-            
+
             // If trajectory is parallel to opponent's line (no Y movement), use full distance
             if (Math.abs(trajectoryVector.y) < 0.001) {
-              const fullDistance = Math.hypot(trajectoryVector.x, trajectoryVector.y);
+              const fullDistance = Math.hypot(
+                trajectoryVector.x,
+                trajectoryVector.y
+              );
               return (fullDistance * curveFactor) / ballSpeed;
             }
-            
+
             // Calculate the ratio to reach opponent's Y coordinate
             const yDistanceToOpponent = opponentY - shotStart.y;
             const ratio = yDistanceToOpponent / trajectoryVector.y;
-            
+
             // Don't clamp the ratio - allow extension beyond shot endpoint for back court positions
             // The ball trajectory continues in the same direction beyond the endpoint
-            
+
             // Calculate the intersection point (can be beyond the shot endpoint)
             const intersectionPoint = {
               x: shotStart.x + trajectoryVector.x * ratio,
               y: shotStart.y + trajectoryVector.y * ratio,
             };
-            
+
             // Calculate distance from contact point to intersection point
             const intersectionDistance = Math.hypot(
               intersectionPoint.x - shotStart.x,
               intersectionPoint.y - shotStart.y
             );
-            
+
             return (intersectionDistance * curveFactor) / ballSpeed;
           };
 
@@ -233,21 +236,33 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
               value: lenDownLine,
               opponentDistance: distanceToShot1,
               opponentTime: calculatePlayerTime(distanceToShot1),
-              ballTime: calculateBallTimeToOpponentLine(contactPoint, shot1Endpoint, opponentPosition.y),
+              ballTime: calculateBallTimeToOpponentLine(
+                contactPoint,
+                shot1Endpoint,
+                opponentPosition.y
+              ),
             },
             {
               label: "Cross-court shot",
               value: lenCross,
               opponentDistance: distanceToShot2,
               opponentTime: calculatePlayerTime(distanceToShot2),
-              ballTime: calculateBallTimeToOpponentLine(contactPoint, shot2Endpoint, opponentPosition.y),
+              ballTime: calculateBallTimeToOpponentLine(
+                contactPoint,
+                shot2Endpoint,
+                opponentPosition.y
+              ),
             },
             {
               label: "Medium shot (bisector)",
               value: lenBisector,
               opponentDistance: distanceToBisector,
               opponentTime: calculatePlayerTime(distanceToBisector),
-              ballTime: calculateBallTimeToOpponentLine(contactPoint, bisectorEndpoint, opponentPosition.y),
+              ballTime: calculateBallTimeToOpponentLine(
+                contactPoint,
+                bisectorEndpoint,
+                opponentPosition.y
+              ),
             },
           ];
 
@@ -339,7 +354,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
         <div className={styles.infoPopup}>
           <div className={styles.infoPopupHeader}>
             <h3>Calculation Details</h3>
-            <button 
+            <button
               className={styles.infoPopupClose}
               onClick={() => setShowInfoPopup(false)}
             >
@@ -349,15 +364,29 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
           <div className={styles.infoPopupContent}>
             <div className={styles.infoSection}>
               <h4>🎾 Shot Analysis</h4>
-              <p><strong>Shot Distances:</strong> Calculated from player contact point to shot endpoints</p>
-              <p><strong>Opponent Distance:</strong> Lateral distance needed to intercept shot trajectory (not endpoint distance)</p>
-              <p><strong>Color Coding:</strong> Green = shortest distance, Red = longest distance (only if difference > 10%)</p>
+              <p>
+                <strong>Shot Distances:</strong> Calculated from player contact
+                point to shot endpoints
+              </p>
+              <p>
+                <strong>Opponent Distance:</strong> Lateral distance needed to
+                intercept shot trajectory (not endpoint distance)
+              </p>
+              <p>
+                <strong>Color Coding:</strong> Green = shortest distance, Red =
+                longest distance (only if difference &gt;10%)
+              </p>
             </div>
 
             <div className={styles.infoSection}>
               <h4>⏱️ Time Calculations</h4>
-              <p><strong>Player Movement:</strong> Assumes 4 m/s lateral speed</p>
-              <p><strong>Ball Trajectory:</strong> Uses shot-specific speeds and curve factors:</p>
+              <p>
+                <strong>Player Movement:</strong> Assumes 4 m/s lateral speed
+              </p>
+              <p>
+                <strong>Ball Trajectory:</strong> Uses shot-specific speeds and
+                curve factors:
+              </p>
               <ul>
                 <li>Flat attack: 110 km/h, 1.05x curve</li>
                 <li>Powerful topspin: 95 km/h, 1.15x curve</li>
@@ -368,23 +397,49 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
 
             <div className={styles.infoSection}>
               <h4>🚨 Critical Alerts</h4>
-              <p><strong>Red + Bold:</strong> Player cannot reach shot in time (movement time > ball time)</p>
-              <p><strong>Comparison:</strong> "&gt;" means player is too slow, "&lt;" means player can reach it</p>
+              <p>
+                <strong>Red + Bold:</strong> Player cannot reach shot in time
+                (movement time &gt; ball time)
+              </p>
+              <p>
+                <strong>Comparison:</strong> "&gt;" means player is too slow,
+                "&lt;" means player can reach it
+              </p>
             </div>
 
             <div className={styles.infoSection}>
               <h4>📐 Physics Model</h4>
-              <p><strong>Curve Factors:</strong> Account for topspin/slice trajectory deviation from straight line</p>
-              <p><strong>Rally topspin:</strong> +25% distance due to significant curve</p>
-              <p><strong>Flat shots:</strong> +5% minimal curve adjustment</p>
-              <p><strong>Interception Logic:</strong> Calculates perpendicular distance to shot path, not endpoint distance</p>
+              <p>
+                <strong>Curve Factors:</strong> Account for topspin/slice
+                trajectory deviation from straight line
+              </p>
+              <p>
+                <strong>Rally topspin:</strong> +25% distance due to significant
+                curve
+              </p>
+              <p>
+                <strong>Flat shots:</strong> +5% minimal curve adjustment
+              </p>
+              <p>
+                <strong>Interception Logic:</strong> Calculates perpendicular
+                distance to shot path, not endpoint distance
+              </p>
             </div>
 
             <div className={styles.infoSection}>
               <h4>🎯 Strategic Insights</h4>
-              <p><strong>Angle Analysis:</strong> Shows tactical angle between shot options</p>
-              <p><strong>Distance Difference:</strong> Helps identify positioning advantages</p>
-              <p><strong>Player Switching:</strong> Hover/drag players to see their perspective</p>
+              <p>
+                <strong>Angle Analysis:</strong> Shows tactical angle between
+                shot options
+              </p>
+              <p>
+                <strong>Distance Difference:</strong> Helps identify positioning
+                advantages
+              </p>
+              <p>
+                <strong>Player Switching:</strong> Hover/drag players to see
+                their perspective
+              </p>
             </div>
           </div>
         </div>
