@@ -4,7 +4,7 @@ import BurgerMenu from "./BurgerMenu";
 import CourtCanvas from "./CourtCanvas";
 import CanvasControls from "./CanvasControls";
 import { useCourtState } from "../hooks/useCourtState";
-import { useDragHandling } from "../hooks/useDragHandling";
+import { useTouchOptimizedDragHandling } from "../hooks/useTouchOptimizedDragHandling";
 import { useCanvasSize } from "../hooks/useCanvasSize";
 import {
   resolvePlayerSwing,
@@ -25,7 +25,7 @@ import tcStyles from "./TennisCourt.module.scss";
 const TennisCourt: React.FC = () => {
   // Use custom hooks for state management
   const courtState = useCourtState();
-  const dragHandling = useDragHandling();
+  const dragHandling = useTouchOptimizedDragHandling();
   const { canvasSize, containerRef } = useCanvasSize(
     courtState.courtOrientation
   );
@@ -230,90 +230,6 @@ const TennisCourt: React.FC = () => {
       cycleSwingMode("player1");
     } else if (hit === "player2") {
       cycleSwingMode("player2");
-    }
-  };
-
-  // Touch handling for double-tap (coordinated with drag handling)
-  const touchTimerRef = useRef<number | null>(null);
-  const lastTouchTimeRef = useRef<number>(0);
-  const lastTouchTargetRef = useRef<string | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const touchMovedRef = useRef<boolean>(false);
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!hitTestHandlesRef.current) return;
-
-    const canvas = e.currentTarget;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    const px = touch.clientX - rect.left;
-    const py = touch.clientY - rect.top;
-
-    // Store initial touch position
-    touchStartPosRef.current = { x: px, y: py };
-    touchMovedRef.current = false;
-
-    const hit = hitTestHandlesRef.current(px, py);
-    const currentTime = Date.now();
-
-    // Only handle double-tap for players
-    if (hit === "player1" || hit === "player2") {
-      // Check for double-tap (within 300ms and same target)
-      if (
-        currentTime - lastTouchTimeRef.current < 300 &&
-        lastTouchTargetRef.current === hit
-      ) {
-        // Prevent default to avoid conflicts with drag
-        e.preventDefault();
-
-        // Double-tap detected - cycle swing mode
-        cycleSwingMode(hit as "player1" | "player2");
-
-        // Reset to prevent triple-tap
-        lastTouchTimeRef.current = 0;
-        lastTouchTargetRef.current = null;
-        touchStartPosRef.current = null;
-      } else {
-        // First tap - store for potential double-tap
-        lastTouchTimeRef.current = currentTime;
-        lastTouchTargetRef.current = hit;
-      }
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!touchStartPosRef.current) return;
-
-    const canvas = e.currentTarget;
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches[0];
-    const px = touch.clientX - rect.left;
-    const py = touch.clientY - rect.top;
-
-    // Calculate movement distance
-    const moveDistance = Math.hypot(
-      px - touchStartPosRef.current.x,
-      py - touchStartPosRef.current.y
-    );
-
-    // If moved more than 10 pixels, consider it a drag, not a tap
-    if (moveDistance > 10) {
-      touchMovedRef.current = true;
-      // Clear double-tap state since this is a drag
-      lastTouchTimeRef.current = 0;
-      lastTouchTargetRef.current = null;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    // Reset touch tracking
-    touchStartPosRef.current = null;
-    touchMovedRef.current = false;
-
-    // Clear any existing timer
-    if (touchTimerRef.current) {
-      clearTimeout(touchTimerRef.current);
-      touchTimerRef.current = null;
     }
   };
 
@@ -609,15 +525,18 @@ const TennisCourt: React.FC = () => {
           showBisectorPlayer2={courtState.showBisectorPlayer2}
           showOptimal={courtState.showOptimal}
           canvasSize={canvasSize}
-          onPointerDown={(e) =>
-            dragHandling.handlePointerDown(
+          onPointerDown={(e) => {
+            const result = dragHandling.handleStart(
               e,
               { current: e.currentTarget as HTMLCanvasElement },
               hitTestHandlesRef.current
-            )
-          }
+            );
+            if (result?.isDoubleTap && result.target) {
+              cycleSwingMode(result.target as "player1" | "player2");
+            }
+          }}
           onPointerMove={(e) =>
-            dragHandling.handlePointerMove(
+            dragHandling.handleMove(
               e,
               { current: e.currentTarget as HTMLCanvasElement },
               courtState.courtOrientation,
@@ -633,7 +552,7 @@ const TennisCourt: React.FC = () => {
               }
             )
           }
-          onPointerUp={dragHandling.handlePointerUp}
+          onPointerUp={dragHandling.handleEnd}
           onMouseMove={(e) => {
             dragHandling.handleMouseMove(
               e,
@@ -658,9 +577,6 @@ const TennisCourt: React.FC = () => {
             }
           }}
           onDoubleClick={handleDoubleClick}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
           onTransformsReady={handleTransformsReady}
         />
 
