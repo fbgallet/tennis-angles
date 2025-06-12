@@ -87,9 +87,9 @@ export const CLAY_COURT_THEME: CourtColorTheme = {
       glow: "#dbeafe", // Very light blue
     },
     player2: {
-      primary: "#f97316", // Orange (harmonious with player red)
-      secondary: "#fb923c", // Light orange
-      glow: "#fed7aa", // Very light orange
+      primary: "#f87171", // Soft red/pink
+      secondary: "#fca5a5", // Light pink
+      glow: "#fee2e2", // Very light pink
     },
   },
   optimal: {
