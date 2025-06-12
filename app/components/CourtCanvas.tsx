@@ -392,6 +392,95 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       ctx.lineTo(shot2Px.x, shot2Px.y);
       ctx.stroke();
       ctx.restore();
+
+      // Extended trajectory lines with lighter colors
+      ctx.save();
+      ctx.strokeStyle = courtTheme.player1.secondary;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6;
+      ctx.setLineDash([5, 5]);
+
+      // Extend shot 1 trajectory
+      const shot1Direction = {
+        x: shot1Px.x - player1ContactPx.x,
+        y: shot1Px.y - player1ContactPx.y,
+      };
+      const shot1Length = Math.hypot(shot1Direction.x, shot1Direction.y);
+      if (shot1Length > 0) {
+        const shot1Unit = {
+          x: shot1Direction.x / shot1Length,
+          y: shot1Direction.y / shot1Length,
+        };
+
+        // Find intersection with court boundaries
+        let extendedShot1End = { x: shot1Px.x, y: shot1Px.y };
+        const maxExtension = 2000; // Maximum pixels to extend
+
+        for (let i = 0; i < maxExtension; i += 10) {
+          const testPoint = {
+            x: shot1Px.x + shot1Unit.x * i,
+            y: shot1Px.y + shot1Unit.y * i,
+          };
+
+          // Check if we're still within the background image bounds
+          if (
+            testPoint.x < offsetX ||
+            testPoint.x > offsetX + drawWidth ||
+            testPoint.y < offsetY ||
+            testPoint.y > offsetY + drawHeight
+          ) {
+            break;
+          }
+          extendedShot1End = testPoint;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(shot1Px.x, shot1Px.y);
+        ctx.lineTo(extendedShot1End.x, extendedShot1End.y);
+        ctx.stroke();
+      }
+
+      // Extend shot 2 trajectory
+      const shot2Direction = {
+        x: shot2Px.x - player1ContactPx.x,
+        y: shot2Px.y - player1ContactPx.y,
+      };
+      const shot2Length = Math.hypot(shot2Direction.x, shot2Direction.y);
+      if (shot2Length > 0) {
+        const shot2Unit = {
+          x: shot2Direction.x / shot2Length,
+          y: shot2Direction.y / shot2Length,
+        };
+
+        // Find intersection with court boundaries
+        let extendedShot2End = { x: shot2Px.x, y: shot2Px.y };
+        const maxExtension = 2000; // Maximum pixels to extend
+
+        for (let i = 0; i < maxExtension; i += 10) {
+          const testPoint = {
+            x: shot2Px.x + shot2Unit.x * i,
+            y: shot2Px.y + shot2Unit.y * i,
+          };
+
+          // Check if we're still within the background image bounds
+          if (
+            testPoint.x < offsetX ||
+            testPoint.x > offsetX + drawWidth ||
+            testPoint.y < offsetY ||
+            testPoint.y > offsetY + drawHeight
+          ) {
+            break;
+          }
+          extendedShot2End = testPoint;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(shot2Px.x, shot2Px.y);
+        ctx.lineTo(extendedShot2End.x, extendedShot2End.y);
+        ctx.stroke();
+      }
+
+      ctx.restore();
     }
 
     // Player 1 bisector with tennis-themed colors and animations
@@ -466,6 +555,95 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       ctx.moveTo(player2ContactPx.x, player2ContactPx.y);
       ctx.lineTo(shot4Px.x, shot4Px.y);
       ctx.stroke();
+      ctx.restore();
+
+      // Extended trajectory lines with lighter colors
+      ctx.save();
+      ctx.strokeStyle = courtTheme.player2.secondary;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.6;
+      ctx.setLineDash([5, 5]);
+
+      // Extend shot 3 trajectory
+      const shot3Direction = {
+        x: shot3Px.x - player2ContactPx.x,
+        y: shot3Px.y - player2ContactPx.y,
+      };
+      const shot3Length = Math.hypot(shot3Direction.x, shot3Direction.y);
+      if (shot3Length > 0) {
+        const shot3Unit = {
+          x: shot3Direction.x / shot3Length,
+          y: shot3Direction.y / shot3Length,
+        };
+
+        // Find intersection with court boundaries
+        let extendedShot3End = { x: shot3Px.x, y: shot3Px.y };
+        const maxExtension = 2000; // Maximum pixels to extend
+
+        for (let i = 0; i < maxExtension; i += 10) {
+          const testPoint = {
+            x: shot3Px.x + shot3Unit.x * i,
+            y: shot3Px.y + shot3Unit.y * i,
+          };
+
+          // Check if we're still within the background image bounds
+          if (
+            testPoint.x < offsetX ||
+            testPoint.x > offsetX + drawWidth ||
+            testPoint.y < offsetY ||
+            testPoint.y > offsetY + drawHeight
+          ) {
+            break;
+          }
+          extendedShot3End = testPoint;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(shot3Px.x, shot3Px.y);
+        ctx.lineTo(extendedShot3End.x, extendedShot3End.y);
+        ctx.stroke();
+      }
+
+      // Extend shot 4 trajectory
+      const shot4Direction = {
+        x: shot4Px.x - player2ContactPx.x,
+        y: shot4Px.y - player2ContactPx.y,
+      };
+      const shot4Length = Math.hypot(shot4Direction.x, shot4Direction.y);
+      if (shot4Length > 0) {
+        const shot4Unit = {
+          x: shot4Direction.x / shot4Length,
+          y: shot4Direction.y / shot4Length,
+        };
+
+        // Find intersection with court boundaries
+        let extendedShot4End = { x: shot4Px.x, y: shot4Px.y };
+        const maxExtension = 2000; // Maximum pixels to extend
+
+        for (let i = 0; i < maxExtension; i += 10) {
+          const testPoint = {
+            x: shot4Px.x + shot4Unit.x * i,
+            y: shot4Px.y + shot4Unit.y * i,
+          };
+
+          // Check if we're still within the background image bounds
+          if (
+            testPoint.x < offsetX ||
+            testPoint.x > offsetX + drawWidth ||
+            testPoint.y < offsetY ||
+            testPoint.y > offsetY + drawHeight
+          ) {
+            break;
+          }
+          extendedShot4End = testPoint;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(shot4Px.x, shot4Px.y);
+        ctx.lineTo(extendedShot4End.x, extendedShot4End.y);
+        ctx.stroke();
+      }
+
       ctx.restore();
     }
 
