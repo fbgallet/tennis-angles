@@ -150,6 +150,11 @@ export function useTouchOptimizedDragHandling() {
     ) => {
       if (!dragging || !canvasRef.current || !anchorsRef.current) return;
 
+      // Prevent default for touch events to avoid scrolling
+      if ("touches" in e) {
+        e.preventDefault();
+      }
+
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -159,23 +164,31 @@ export function useTouchOptimizedDragHandling() {
       const px = (normalized.clientX - rect.left) * scaleX;
       const py = (normalized.clientY - rect.top) * scaleY;
 
-      // Check if we've moved enough to start dragging
+      // For mobile devices, start dragging immediately after initial touch
+      // The threshold check was causing the dragging to stop after a few pixels
       if (!isDraggingRef.current && dragStartPointRef.current) {
         const moveDistance = Math.hypot(
           px - dragStartPointRef.current.x,
           py - dragStartPointRef.current.y
         );
 
-        if (moveDistance > touchMoveThresholdRef.current) {
+        // Use a much smaller threshold for mobile, or skip it entirely for touch devices
+        const threshold = deviceInfo?.isTouch
+          ? 2
+          : touchMoveThresholdRef.current;
+
+        if (moveDistance > threshold) {
           isDraggingRef.current = true;
           preventClickRef.current = true;
           // Clear double-tap state since this is a drag
           lastTouchTimeRef.current = 0;
           lastTouchTargetRef.current = null;
-        } else {
-          // Haven't moved enough yet, don't update positions
-          return;
         }
+      }
+
+      // Always update positions when dragging is active, regardless of threshold
+      if (!isDraggingRef.current && !deviceInfo?.isTouch) {
+        return; // Only return early for non-touch devices
       }
 
       if (!anchorsRef.current.pxToCourt) return;
@@ -241,7 +254,7 @@ export function useTouchOptimizedDragHandling() {
         setters.setShot4({ x: courtX, y: courtY });
       }
     },
-    [dragging]
+    [dragging, deviceInfo]
   );
 
   const handleEnd = useCallback(() => {
