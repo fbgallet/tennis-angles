@@ -84,6 +84,10 @@
   align-items: start;
 }
 
+.mobileImageShowcase {
+  display: none;
+}
+
 .imageShowcase {
   background: var(--card);
   padding: 2rem;
@@ -393,6 +397,46 @@
   .content {
     grid-template-columns: 1fr;
     gap: 2rem;
+  }
+
+  .mobileImageShowcase {
+    display: block;
+    background: var(--card);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .mobileImageShowcase::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6 0%, #fbbf24 50%, #1e40af 100%);
+  }
+
+  .mobileImageShowcase h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .mobileImageShowcase h3::before {
+    content: "📊";
+  }
+
+  .imageShowcase {
+    display: none;
   }
 
   .cta {

@@ -140,6 +140,26 @@ export default function EnglishHome() {
           </header>
 
           <section className={styles.content}>
+            <div className={styles.mobileImageShowcase}>
+              <h3>Interactive Visualization</h3>
+              <Link href="/en/visualizer" className={styles.imageContainer}>
+                <img
+                  src="/angle-theory-example.png"
+                  alt="Tennis angle theory example - Interactive visualization showing optimal court positioning"
+                  className={styles.exampleImage}
+                />
+                <div className={styles.imageOverlay}>
+                  <span>🎾 Click to try the visualizer 🎾</span>
+                </div>
+              </Link>
+              <p className={styles.imageCaption}>
+                Discover how angle theory works in practice with our interactive
+                visualizer.
+                <span className={styles.tennisIcon}>🎯</span>
+                Position players and observe optimal positioning in real-time.
+              </p>
+            </div>
+
             <div className={styles.theory}>
               <h2>Understanding the Angle Theory</h2>
               <p>
@@ -147,7 +167,7 @@ export default function EnglishHome() {
                 concept that revolutionized tennis positioning and shot
                 selection. It provides a simple and effective method to
                 reposition after each move, relying on geometric principles
-                instead of guessing the opponent’s intentions.
+                instead of guessing the opponent's intentions.
               </p>
 
               <div className={styles.keyPoints}>
@@ -262,6 +282,14 @@ export default function EnglishHome() {
               </p>
               <div className={styles.developerLinks}>
                 <a
+                  href="https://buymeacoffee.com/fbgallet"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.socialLink}
+                >
+                  Support my work, buy me a coffee ☕
+                </a>
+                <a
                   href="https://twitter.com/fbgallet"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -276,14 +304,6 @@ export default function EnglishHome() {
                   className={styles.socialLink}
                 >
                   View repo on GitHub →
-                </a>
-                <a
-                  href="https://buymeacoffee.com/fbgallet"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.socialLink}
-                >
-                  Support my work, buy me a coffee ☕
                 </a>
               </div>
             </div>

@@ -144,6 +144,27 @@ export default function FrenchHome() {
           </header>
 
           <section className={styles.content}>
+            <div className={styles.mobileImageShowcase}>
+              <h3>Visualisation Interactive</h3>
+              <Link href="/fr/visualizer" className={styles.imageContainer}>
+                <img
+                  src="/angle-theory-example.png"
+                  alt="Exemple de la théorie des angles au tennis - Visualisation interactive montrant le positionnement optimal sur court"
+                  className={styles.exampleImage}
+                />
+                <div className={styles.imageOverlay}>
+                  <span>🎾 Cliquez pour essayer le simulateur 🎾</span>
+                </div>
+              </Link>
+              <p className={styles.imageCaption}>
+                Découvrez comment la théorie des angles fonctionne en pratique
+                avec notre simulateur interactif.
+                <span className={styles.tennisIcon}>🎯</span>
+                Positionnez les joueurs et observez le positionnement optimal en
+                temps réel.
+              </p>
+            </div>
+
             <div className={styles.theory}>
               <h2>Comprendre la Théorie des Angles</h2>
               <p>
@@ -270,6 +291,14 @@ export default function FrenchHome() {
               </p>
               <div className={styles.developerLinks}>
                 <a
+                  href="https://buymeacoffee.com/fbgallet"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.socialLink}
+                >
+                  Soutenez mon travail, offrez-moi un café ☕
+                </a>
+                <a
                   href="https://twitter.com/fbgallet"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -284,14 +313,6 @@ export default function FrenchHome() {
                   className={styles.socialLink}
                 >
                   Voir le dépôt sur GitHub →
-                </a>
-                <a
-                  href="https://buymeacoffee.com/fbgallet"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.socialLink}
-                >
-                  Soutenez mon travail, offrez-moi un café ☕
                 </a>
               </div>
             </div>

@@ -96,12 +96,12 @@ export const CLAY_COURT_THEME: CourtColorTheme = {
     player1: {
       primary: "#f59e0b", // Amber
       secondary: "#fbbf24", // Light amber
-      glow: "#fef3c7", // Very light amber
+      glow: "#fef3c780", // Very light amber
     },
     player2: {
       primary: "#10b981", // Emerald
       secondary: "#34d399", // Light emerald
-      glow: "#d1fae5", // Very light emerald
+      glow: "#d1fae580", // Very light emerald
     },
   },
   rackets: {
@@ -150,12 +150,12 @@ export const GRASS_COURT_THEME: CourtColorTheme = {
     player1: {
       primary: "#eab308", // Yellow
       secondary: "#facc15", // Light yellow
-      glow: "#fef9c3", // Very light yellow
+      glow: "#fef9c380", // Very light yellow
     },
     player2: {
       primary: "#06b6d4", // Cyan
       secondary: "#22d3ee", // Light cyan
-      glow: "#cffafe", // Very light cyan
+      glow: "#cffafe80", // Very light cyan
     },
   },
   rackets: {
@@ -204,12 +204,12 @@ export const HARD_COURT_THEME: CourtColorTheme = {
     player1: {
       primary: "#8b5cf6", // Purple
       secondary: "#a78bfa", // Light purple
-      glow: "#ede9fe", // Very light purple
+      glow: "#ede9fe80", // Very light purple
     },
     player2: {
       primary: "#f59e0b", // Orange
       secondary: "#fbbf24", // Light orange
-      glow: "#fef3c7", // Very light orange
+      glow: "#fef3c780", // Very light orange
     },
   },
   rackets: {

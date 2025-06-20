@@ -128,9 +128,9 @@ export const translations = {
     hard: "Dur",
     grass: "Gazon",
     shotType: "Type de coup:",
-    flatAttack: "Coup droit d'attaque à plat (110 km/h)",
-    powerfulTopspin: "Coup droit lifté puissant (95 km/h)",
-    rallyTopspin: "Lifté d'échange (80 km/h)",
+    flatAttack: "Coup d'attaque à plat (110 km/h)",
+    powerfulTopspin: "Coup lifté puissant (95 km/h)",
+    rallyTopspin: "Coup lifté de rally (80 km/h)",
     defensiveSlice: "Slice défensif (60 km/h)",
 
     player1Display: "Affichage Joueur 1",
