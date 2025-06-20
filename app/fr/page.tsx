@@ -206,7 +206,7 @@ export default function FrenchHome() {
                 <p>
                   Un positionnement approprié basé sur la théorie des angles
                   peut considérablement améliorer vos capacités défensives et
-                  votre couverture du court. Vous augmentez vos chances
+                  votre couverture du terrain. Vous augmentez vos chances
                   d'atteindre n'importe quel coup de l'adversaire et vous
                   délestez votre esprit de suppositions sur les intentions de
                   l'adversaire, pour concentrer votre attention sur ce qui est
@@ -224,13 +224,13 @@ export default function FrenchHome() {
                 <h3>Une théorie fondée scientifiquement :</h3>
                 <p>
                   La Théorie des Angles n'est pas seulement une hypothèse
-                  mathématique — elle est validée par la recherche scientifique.
+                  géométrique, elle est validée par la recherche scientifique.
                   Une étude récente publiée dans la revue Nature a permis
                   d'établir que parmis plusieurs stratégies de positionnement
                   possibles, c'est bien la Théorie des Angles qui décrit le
                   mieux le positionnement des meilleurs joueurs. Dans cette
                   étude impliquant 23 joueurs professionnels dont les meilleurs
-                  mondiaux, il "semble que plus les joueurs sont expérimentés,
+                  mondiaux, il apparaît "que plus les joueurs sont expérimentés,
                   plus leur application de cette stratégie devient précise."
                 </p>
                 <p>
@@ -284,10 +284,10 @@ export default function FrenchHome() {
             <div className={styles.developer}>
               <h3>À Propos du Développeur</h3>
               <p>
-                Ce simulateur interactif de la théorie des angles au tennis a
-                été développé par <strong>Fabrice Gallet</strong>, développeur
-                fullstack React/Typescript/Next.js, amateur de belles théories
-                appréciables en pratique !
+                Ce simulateur interactif de la théorie des angles a été
+                développé par <strong>Fabrice Gallet</strong>, développeur
+                fullstack React/Typescript/Next.js, amateur de théories qui
+                changent la vie en pratique !
               </p>
               <div className={styles.developerLinks}>
                 <a

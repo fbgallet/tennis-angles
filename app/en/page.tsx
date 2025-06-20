@@ -216,14 +216,14 @@ export default function EnglishHome() {
               <div className={styles.evidence}>
                 <h3>Evidence-Based Theory:</h3>
                 <p>
-                  The Tennis Angle Theory is not just theoretical—it's backed by
-                  scientific research. A recent study published in the journal
-                  Nature established that among several possible positioning
-                  strategies, it is indeed Angle Theory that best describes the
-                  positioning of top players. In this study involving 23
-                  professional players among the world's best, it "appears that
-                  the more experienced the players are, the more precise their
-                  application of this strategy becomes."
+                  The Tennis Angle Theory is not just theoretical, it's backed
+                  by scientific research. A recent study published in the
+                  journal Nature established that among several possible
+                  positioning strategies, it is indeed Angle Theory that best
+                  describes the positioning of top players. In this study
+                  involving 23 professional players among the world's best, it
+                  "appears that the more experienced the players are, the more
+                  precise their application of this strategy becomes."
                 </p>
                 <p>
                   <a
