@@ -56,12 +56,9 @@ await fs.writeFile(VISITS_FILE, JSON.stringify({ visits: count }));
 ### After (Upstash Redis - ✅ Production Ready)
 
 ```typescript
-// Persistent Redis storage
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-await redis.set("tennis-angle-theory:visits", count);
+// Persistent Redis storage with atomic operations
+const redis = Redis.fromEnv();
+const newVisits = await redis.incr("tennis-angle-theory:visits");
 ```
 
 ## Features
