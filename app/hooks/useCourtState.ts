@@ -3,6 +3,7 @@ import type {
   Position,
   CourtOrientation,
   CourtType,
+  GameMode,
   Handedness,
   SwingType,
   ResolvedSwingType,
@@ -17,6 +18,7 @@ export function useCourtState() {
   const [courtOrientation, setCourtOrientation] =
     useState<CourtOrientation>("portrait");
   const [courtType, setCourtType] = useState<CourtType>("hard");
+  const [gameMode, setGameMode] = useState<GameMode>("singles");
 
   // Display settings
   const [showStatsPanel, setShowStatsPanel] = useState(false);
@@ -37,6 +39,12 @@ export function useCourtState() {
   );
   const [hasMovedPlayer1, setHasMovedPlayer1] = useState(false);
   const [hasMovedPlayer2, setHasMovedPlayer2] = useState(false);
+
+  // Additional players for doubles (positioned on opposite sides initially)
+  const [player1bis, setPlayer1bis] = useState<Position>({ x: 7.5, y: 6 });
+  const [player2bis, setPlayer2bis] = useState<Position>({ x: 3.5, y: 17.77 });
+  const [hasMovedPlayer1bis, setHasMovedPlayer1bis] = useState(false);
+  const [hasMovedPlayer2bis, setHasMovedPlayer2bis] = useState(false);
 
   // Player handedness and swing settings
   const [player1Handedness, setPlayer1Handedness] =
@@ -69,10 +77,13 @@ export function useCourtState() {
   // Game state
   const [feedback, setFeedback] = useState("");
 
-  // Reset positions when orientation changes (unless user has moved)
+  // Reset positions when orientation or game mode changes (unless user has moved)
   useEffect(() => {
-    const defaultPositions = getDefaultPlayerPositions(courtOrientation);
-    const defaultShots = getDefaultShotPositions(courtOrientation);
+    const defaultPositions = getDefaultPlayerPositions(
+      courtOrientation,
+      gameMode
+    );
+    const defaultShots = getDefaultShotPositions(courtOrientation, gameMode);
 
     if (!hasMovedPlayer1) {
       setPlayer1(defaultPositions.player1);
@@ -84,7 +95,7 @@ export function useCourtState() {
       setShot3(defaultShots.shot3);
       setShot4(defaultShots.shot4);
     }
-  }, [courtOrientation, hasMovedPlayer1, hasMovedPlayer2]);
+  }, [courtOrientation, gameMode, hasMovedPlayer1, hasMovedPlayer2]);
 
   return {
     // Court settings
@@ -92,6 +103,8 @@ export function useCourtState() {
     setCourtOrientation,
     courtType,
     setCourtType,
+    gameMode,
+    setGameMode,
 
     // Display settings
     showStatsPanel,
@@ -120,6 +133,16 @@ export function useCourtState() {
     setHasMovedPlayer1,
     hasMovedPlayer2,
     setHasMovedPlayer2,
+
+    // Additional players for doubles
+    player1bis,
+    setPlayer1bis,
+    player2bis,
+    setPlayer2bis,
+    hasMovedPlayer1bis,
+    setHasMovedPlayer1bis,
+    hasMovedPlayer2bis,
+    setHasMovedPlayer2bis,
 
     // Player settings
     player1Handedness,

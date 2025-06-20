@@ -4,6 +4,7 @@ import { useLanguage } from "../hooks/useLanguage";
 import type {
   CourtOrientation,
   CourtType,
+  GameMode,
   Handedness,
   SwingType,
   ShotType,
@@ -15,6 +16,8 @@ interface BurgerMenuProps {
   setCourtOrientation: (orientation: CourtOrientation) => void;
   courtType: CourtType;
   setCourtType: (type: CourtType) => void;
+  gameMode: GameMode;
+  setGameMode: (mode: GameMode) => void;
   showShotsPlayer1: boolean;
   setShowShotsPlayer1: (show: boolean) => void;
   showBisectorPlayer1: boolean;
@@ -101,6 +104,8 @@ const BurgerMenu: React.FC<BurgerMenuProps> = (props) => {
             setCourtOrientation={props.setCourtOrientation}
             courtType={props.courtType}
             setCourtType={props.setCourtType}
+            gameMode={props.gameMode}
+            setGameMode={props.setGameMode}
             showShotsPlayer1={props.showShotsPlayer1}
             setShowShotsPlayer1={props.setShowShotsPlayer1}
             showBisectorPlayer1={props.showBisectorPlayer1}

@@ -26,6 +26,8 @@ interface CourtCanvasProps {
   // Positions
   player1: Position;
   player2: Position;
+  player1bis?: Position;
+  player2bis?: Position;
   shot1: Position;
   shot2: Position;
   shot3: Position;
@@ -34,6 +36,7 @@ interface CourtCanvasProps {
   // Settings
   courtOrientation: CourtOrientation;
   courtType: string;
+  gameMode?: string;
   player1Handedness: Handedness;
   player1Swing: SwingType;
   player2Handedness: Handedness;
@@ -65,12 +68,15 @@ interface CourtCanvasProps {
 const CourtCanvas: React.FC<CourtCanvasProps> = ({
   player1,
   player2,
+  player1bis,
+  player2bis,
   shot1,
   shot2,
   shot3,
   shot4,
   courtOrientation,
   courtType,
+  gameMode,
   player1Handedness,
   player1Swing,
   player2Handedness,
@@ -701,7 +707,39 @@ const CourtCanvas: React.FC<CourtCanvasProps> = ({
       orientation: courtOrientation,
     });
 
-    // Draw rackets with tennis-themed colors
+    // Draw additional players for doubles mode (without shot options)
+    if (gameMode === "doubles" && player1bis && player2bis) {
+      const player1bisPx = courtToPx(player1bis);
+      const player2bisPx = courtToPx(player2bis);
+
+      // Draw player1bis with a slightly different color (lighter version of player1 color)
+      drawPlayerHandle({
+        ctx,
+        x: player1bisPx.x,
+        y: player1bisPx.y,
+        color: courtTheme.player1.secondary,
+        handedness: "right", // Default handedness for doubles partners
+        scale: pxPerMeter,
+        swing: "forehand", // Default swing for doubles partners
+        isPlayer1: true,
+        orientation: courtOrientation,
+      });
+
+      // Draw player2bis with a slightly different color (lighter version of player2 color)
+      drawPlayerHandle({
+        ctx,
+        x: player2bisPx.x,
+        y: player2bisPx.y,
+        color: courtTheme.player2.secondary,
+        handedness: "right", // Default handedness for doubles partners
+        scale: pxPerMeter,
+        swing: "forehand", // Default swing for doubles partners
+        isPlayer1: false,
+        orientation: courtOrientation,
+      });
+    }
+
+    // Draw rackets with tennis-themed colors (only for main players)
     drawRacket(
       ctx,
       visualArmEndPxPlayer1,

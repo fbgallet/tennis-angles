@@ -2,12 +2,19 @@
 export const COURT_LENGTH = 23.77;
 export const COURT_WIDTH = 10.97;
 export const SINGLES_WIDTH = 8.23;
+export const DOUBLES_WIDTH = 10.97;
 export const NET_Y = COURT_LENGTH / 2; // Net Y position (middle of the court)
 
 // Singles sideline anchors (ITF standard, meters from left edge)
-export const LEFT_SINGLES_X = 0.914;
-export const RIGHT_SINGLES_X = 8.229;
+export const LEFT_SINGLES_X = 1.37;
+export const RIGHT_SINGLES_X = 9.6;
 export const SINGLES_CENTER_X = (LEFT_SINGLES_X + RIGHT_SINGLES_X) / 2;
+
+// Doubles sideline anchors (ITF standard, meters from left edge)
+export const LEFT_DOUBLES_X = 0;
+export const RIGHT_DOUBLES_X = 10.97;
+export const DOUBLES_CENTER_X = (LEFT_DOUBLES_X + RIGHT_DOUBLES_X) / 2;
+
 export const TOP_Y = 0;
 export const BOT_Y = COURT_LENGTH;
 

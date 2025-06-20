@@ -47,7 +47,9 @@ export function useTouchOptimizedDragHandling() {
     shot2: Position,
     shot3: Position,
     shot4: Position,
-    courtToPx: (pos: Position) => { x: number; y: number }
+    courtToPx: (pos: Position) => { x: number; y: number },
+    player1bis?: Position,
+    player2bis?: Position
   ) {
     return function hitTestHandles(
       px: number,
@@ -65,6 +67,18 @@ export function useTouchOptimizedDragHandling() {
       const shot2Px = courtToPx(shot2);
       const shot3Px = courtToPx(shot3);
       const shot4Px = courtToPx(shot4);
+
+      // Check additional players first (they might overlap with main players)
+      if (player1bis) {
+        const player1bisPx = courtToPx(player1bis);
+        if (dist(px, py, player1bisPx.x, player1bisPx.y) < r)
+          return "player1bis";
+      }
+      if (player2bis) {
+        const player2bisPx = courtToPx(player2bis);
+        if (dist(px, py, player2bisPx.x, player2bisPx.y) < r)
+          return "player2bis";
+      }
 
       if (dist(px, py, player1Px.x, player1Px.y) < r) return "player1";
       if (dist(px, py, player2Px.x, player2Px.y) < r) return "player2";
@@ -157,12 +171,16 @@ export function useTouchOptimizedDragHandling() {
       setters: {
         setPlayer1: (pos: Position) => void;
         setPlayer2: (pos: Position) => void;
+        setPlayer1bis?: (pos: Position) => void;
+        setPlayer2bis?: (pos: Position) => void;
         setShot1: (pos: Position) => void;
         setShot2: (pos: Position) => void;
         setShot3: (pos: Position) => void;
         setShot4: (pos: Position) => void;
         setHasMovedPlayer1: (moved: boolean) => void;
         setHasMovedPlayer2: (moved: boolean) => void;
+        setHasMovedPlayer1bis?: (moved: boolean) => void;
+        setHasMovedPlayer2bis?: (moved: boolean) => void;
       }
     ) => {
       if (!dragging || !canvasRef.current || !anchorsRef.current) return;
@@ -261,6 +279,22 @@ export function useTouchOptimizedDragHandling() {
           y: clamp(courtY, NET_Y, bgLogicalBottom),
         });
         setters.setHasMovedPlayer2(true);
+      } else if (dragging === "player1bis" && setters.setPlayer1bis) {
+        setters.setPlayer1bis({
+          x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+          y: clamp(courtY, bgLogicalTop, NET_Y),
+        });
+        if (setters.setHasMovedPlayer1bis) {
+          setters.setHasMovedPlayer1bis(true);
+        }
+      } else if (dragging === "player2bis" && setters.setPlayer2bis) {
+        setters.setPlayer2bis({
+          x: clamp(courtX, bgLogicalLeft, bgLogicalRight),
+          y: clamp(courtY, NET_Y, bgLogicalBottom),
+        });
+        if (setters.setHasMovedPlayer2bis) {
+          setters.setHasMovedPlayer2bis(true);
+        }
       } else if (dragging === "shot1") {
         setters.setShot1({ x: courtX, y: courtY });
       } else if (dragging === "shot2") {

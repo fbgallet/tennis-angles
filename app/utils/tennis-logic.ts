@@ -3,6 +3,7 @@ import type {
   CourtOrientation,
   Handedness,
   ResolvedSwingType,
+  GameMode,
 } from "../types/tennis";
 import { getPlayerArmTheta } from "../components/PlayerHandle";
 import {
@@ -11,39 +12,53 @@ import {
   LEFT_SINGLES_X,
   RIGHT_SINGLES_X,
   SINGLES_CENTER_X,
+  LEFT_DOUBLES_X,
+  RIGHT_DOUBLES_X,
+  DOUBLES_CENTER_X,
   NET_Y,
   COURT_LENGTH,
 } from "../constants/tennis";
 import { clamp } from "./coordinates";
 
-export function getDefaultPlayerPositions(orientation: CourtOrientation) {
+export function getDefaultPlayerPositions(
+  orientation: CourtOrientation,
+  gameMode: GameMode = "singles"
+) {
+  const centerX = gameMode === "doubles" ? DOUBLES_CENTER_X : SINGLES_CENTER_X;
+
   if (orientation === "portrait") {
     return {
-      player1: { x: SINGLES_CENTER_X, y: 0 },
-      player2: { x: SINGLES_CENTER_X, y: COURT_LENGTH },
+      player1: { x: centerX, y: 0 },
+      player2: { x: centerX, y: COURT_LENGTH },
     };
   } else {
     return {
-      player1: { x: SINGLES_CENTER_X, y: 0 },
-      player2: { x: SINGLES_CENTER_X, y: COURT_LENGTH },
+      player1: { x: centerX, y: 0 },
+      player2: { x: centerX, y: COURT_LENGTH },
     };
   }
 }
 
-export function getDefaultShotPositions(orientation: CourtOrientation) {
+export function getDefaultShotPositions(
+  orientation: CourtOrientation,
+  gameMode: GameMode = "singles"
+) {
+  const leftX = gameMode === "doubles" ? LEFT_DOUBLES_X : LEFT_SINGLES_X;
+  const rightX = gameMode === "doubles" ? RIGHT_DOUBLES_X : RIGHT_SINGLES_X;
+
   if (orientation === "portrait") {
     return {
-      shot1: { x: LEFT_SINGLES_X, y: COURT_LENGTH },
-      shot2: { x: RIGHT_SINGLES_X, y: COURT_LENGTH },
-      shot3: { x: LEFT_SINGLES_X, y: 0 },
-      shot4: { x: RIGHT_SINGLES_X, y: 0 },
+      shot1: { x: leftX, y: COURT_LENGTH },
+      shot2: { x: rightX, y: COURT_LENGTH },
+      shot3: { x: leftX, y: 0 },
+      shot4: { x: rightX, y: 0 },
     };
   } else {
     return {
-      shot1: { x: LEFT_SINGLES_X, y: COURT_LENGTH },
-      shot2: { x: RIGHT_SINGLES_X, y: COURT_LENGTH },
-      shot3: { x: LEFT_SINGLES_X, y: 0 },
-      shot4: { x: RIGHT_SINGLES_X, y: 0 },
+      shot1: { x: leftX, y: COURT_LENGTH },
+      shot2: { x: rightX, y: COURT_LENGTH },
+      shot3: { x: leftX, y: 0 },
+      shot4: { x: rightX, y: 0 },
     };
   }
 }
@@ -54,9 +69,12 @@ export function resolvePlayerSwing(
   orientation: CourtOrientation,
   isPlayer1: boolean,
   prevSwing: ResolvedSwingType,
-  setPrevSwing?: (swing: ResolvedSwingType) => void
+  setPrevSwing?: (swing: ResolvedSwingType) => void,
+  gameMode: GameMode = "singles"
 ): ResolvedSwingType {
-  const rel = (player.x - LEFT_SINGLES_X) / (RIGHT_SINGLES_X - LEFT_SINGLES_X);
+  const leftX = gameMode === "doubles" ? LEFT_DOUBLES_X : LEFT_SINGLES_X;
+  const rightX = gameMode === "doubles" ? RIGHT_DOUBLES_X : RIGHT_SINGLES_X;
+  const rel = (player.x - leftX) / (rightX - leftX);
 
   // Define transition zones with hysteresis
   const TRANSITION_WIDTH = 0.25; // 25% transition zone
@@ -193,11 +211,15 @@ export function calculateAutoShotPositions(
   player: Position,
   contactPoint: Position,
   orientation: CourtOrientation,
-  isPlayer1: boolean
+  isPlayer1: boolean,
+  gameMode: GameMode = "singles"
 ): { shot1: Position; shot2: Position } {
+  const leftX = gameMode === "doubles" ? LEFT_DOUBLES_X : LEFT_SINGLES_X;
+  const rightX = gameMode === "doubles" ? RIGHT_DOUBLES_X : RIGHT_SINGLES_X;
+  const centerX = gameMode === "doubles" ? DOUBLES_CENTER_X : SINGLES_CENTER_X;
+
   // Down-the-line: interpolate from baseline to service line as player advances
-  const downLineX =
-    contactPoint.x < SINGLES_CENTER_X ? LEFT_SINGLES_X : RIGHT_SINGLES_X;
+  const downLineX = contactPoint.x < centerX ? leftX : rightX;
   const serviceLineY = isPlayer1 ? NET_Y + 6.4 : NET_Y - 6.4;
   const targetBaseline = isPlayer1 ? COURT_LENGTH : 0;
 
@@ -208,7 +230,7 @@ export function calculateAutoShotPositions(
   );
 
   const lateral = clamp(
-    Math.abs(contactPoint.x - SINGLES_CENTER_X) / (10.97 / 2),
+    Math.abs(contactPoint.x - centerX) / (10.97 / 2),
     0,
     1.2
   );
@@ -228,8 +250,7 @@ export function calculateAutoShotPositions(
   const downLine = { x: downLineX, y: downLineY };
 
   // Cross-court: interpolate from baseline to 1m inside service line based on lateral position
-  const crossX =
-    contactPoint.x < SINGLES_CENTER_X ? RIGHT_SINGLES_X : LEFT_SINGLES_X;
+  const crossX = contactPoint.x < centerX ? rightX : leftX;
 
   const lateralScale = orientation === "portrait" ? 7 : 7.5;
   const forwardScale = orientation === "portrait" ? 5 : 5.5;

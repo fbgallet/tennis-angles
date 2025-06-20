@@ -3,6 +3,7 @@ import { useLanguage } from "../hooks/useLanguage";
 import type {
   CourtOrientation,
   CourtType,
+  GameMode,
   Handedness,
   SwingType,
   ShotType,
@@ -14,6 +15,8 @@ interface CourtControlsProps {
   setCourtOrientation: (orientation: CourtOrientation) => void;
   courtType: CourtType;
   setCourtType: (type: CourtType) => void;
+  gameMode: GameMode;
+  setGameMode: (mode: GameMode) => void;
   showShotsPlayer1: boolean;
   setShowShotsPlayer1: (show: boolean) => void;
   showBisectorPlayer1: boolean;
@@ -48,6 +51,8 @@ const CourtControls: React.FC<CourtControlsProps> = ({
   setCourtOrientation,
   courtType,
   setCourtType,
+  gameMode,
+  setGameMode,
   showShotsPlayer1,
   setShowShotsPlayer1,
   showBisectorPlayer1,
@@ -93,6 +98,19 @@ const CourtControls: React.FC<CourtControlsProps> = ({
             >
               <option value="portrait">{t("portrait")}</option>
               <option value="landscape">{t("landscape")}</option>
+            </select>
+          </label>
+        </div>
+        <div className={tcStyles.compactRow}>
+          <label className={tcStyles.selectLabel}>
+            <span className={tcStyles.selectText}>{t("gameMode")}</span>
+            <select
+              value={gameMode}
+              onChange={(e) => setGameMode(e.target.value as GameMode)}
+              className={tcStyles.smallSelect}
+            >
+              <option value="singles">{t("singles")}</option>
+              <option value="doubles">{t("doubles")}</option>
             </select>
           </label>
         </div>
@@ -262,18 +280,21 @@ const CourtControls: React.FC<CourtControlsProps> = ({
           </div>
         </div>
 
-        <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>{t("game")}</h4>
-          <div className={tcStyles.gameControls}>
-            <button className={tcStyles.gameButton} onClick={onCheckPosition}>
-              {t("checkPosition")}
-            </button>
-            <button className={tcStyles.gameButton} onClick={onShowSolution}>
-              {t("showSolution")}
-            </button>
+        {/* Hide gamification buttons for now */}
+        {false && (
+          <div className={tcStyles.controlSection}>
+            <h4 className={tcStyles.controlSectionTitle}>{t("game")}</h4>
+            <div className={tcStyles.gameControls}>
+              <button className={tcStyles.gameButton} onClick={onCheckPosition}>
+                {t("checkPosition")}
+              </button>
+              <button className={tcStyles.gameButton} onClick={onShowSolution}>
+                {t("showSolution")}
+              </button>
+            </div>
+            {feedback && <div className={tcStyles.feedback}>{feedback}</div>}
           </div>
-          {feedback && <div className={tcStyles.feedback}>{feedback}</div>}
-        </div>
+        )}
       </div>
     </div>
   );

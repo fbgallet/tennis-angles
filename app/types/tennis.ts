@@ -1,5 +1,6 @@
 export type CourtOrientation = "portrait" | "landscape";
 export type CourtType = "clay" | "hard" | "grass";
+export type GameMode = "singles" | "doubles";
 export type Handedness = "right" | "left";
 export type SwingType = "auto" | "forehand" | "backhand";
 export type ResolvedSwingType = "forehand" | "backhand";
@@ -12,6 +13,8 @@ export type ShotType =
 export type DragTarget =
   | "player1"
   | "player2"
+  | "player1bis"
+  | "player2bis"
   | "shot1"
   | "shot2"
   | "shot3"
@@ -45,6 +48,7 @@ export interface ShotState {
 export interface CourtSettings {
   orientation: CourtOrientation;
   type: CourtType;
+  gameMode: GameMode;
   showStatsPanel: boolean;
   showAngles: boolean;
   showAnglesPlayer2: boolean;

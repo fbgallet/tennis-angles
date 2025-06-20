@@ -6,9 +6,11 @@ import {
   faEyeSlash,
   faMobile,
   faDesktop,
+  faUser,
+  faUserGroup,
 } from "@fortawesome/free-solid-svg-icons";
 import { useLanguage } from "../hooks/useLanguage";
-import type { CourtOrientation } from "../types/tennis";
+import type { CourtOrientation, GameMode } from "../types/tennis";
 import styles from "./CanvasControls.module.scss";
 
 interface CanvasControlsProps {
@@ -16,6 +18,8 @@ interface CanvasControlsProps {
   onOrientationToggle: () => void;
   showStatsPanel: boolean;
   onStatsToggle: () => void;
+  gameMode: GameMode;
+  onGameModeToggle: () => void;
 }
 
 const CanvasControls: React.FC<CanvasControlsProps> = ({
@@ -23,10 +27,25 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
   onOrientationToggle,
   showStatsPanel,
   onStatsToggle,
+  gameMode,
+  onGameModeToggle,
 }) => {
   const { t } = useLanguage();
   return (
     <div className={styles.canvasControls}>
+      {/* Game Mode Toggle Button */}
+      <button
+        className={`${styles.controlButton} ${styles.gameModeButton}`}
+        onClick={onGameModeToggle}
+        title={gameMode === "singles" ? t("doubles") : t("singles")}
+        aria-label={gameMode === "singles" ? t("doubles") : t("singles")}
+      >
+        <FontAwesomeIcon
+          icon={gameMode === "singles" ? faUser : faUserGroup}
+          className={styles.buttonIcon}
+        />
+      </button>
+
       {/* Orientation Toggle Button */}
       <button
         className={`${styles.controlButton} ${styles.orientationButton}`}
@@ -43,7 +62,7 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
         }
       >
         <FontAwesomeIcon
-          icon={courtOrientation === "portrait" ? faDesktop : faMobile}
+          icon={courtOrientation === "portrait" ? faMobile : faDesktop}
           className={styles.buttonIcon}
         />
         {/* <span className={styles.buttonLabel}>

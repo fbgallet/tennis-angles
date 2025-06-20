@@ -53,7 +53,9 @@ const TennisCourt: React.FC = () => {
       courtState.shot2,
       courtState.shot3,
       courtState.shot4,
-      transforms.courtToPx
+      transforms.courtToPx,
+      courtState.player1bis,
+      courtState.player2bis
     );
     hitTestHandlesRef.current = hitTestHandles;
 
@@ -141,7 +143,8 @@ const TennisCourt: React.FC = () => {
       courtState.player1,
       contact,
       courtState.courtOrientation,
-      true
+      true,
+      courtState.gameMode
     );
 
     courtState.setShot1(shot1);
@@ -153,6 +156,7 @@ const TennisCourt: React.FC = () => {
     courtState.player1Handedness,
     courtState.player1Swing,
     courtState.courtOrientation,
+    courtState.gameMode,
   ]);
 
   // Auto-update shot endpoints based on Player 2 position
@@ -185,7 +189,8 @@ const TennisCourt: React.FC = () => {
       courtState.player2,
       contact,
       courtState.courtOrientation,
-      false
+      false,
+      courtState.gameMode
     );
 
     courtState.setShot3(shot1);
@@ -197,6 +202,7 @@ const TennisCourt: React.FC = () => {
     courtState.player2Handedness,
     courtState.player2Swing,
     courtState.courtOrientation,
+    courtState.gameMode,
   ]);
 
   // Cycle swing mode for a player
@@ -447,6 +453,8 @@ const TennisCourt: React.FC = () => {
         setCourtOrientation={courtState.setCourtOrientation}
         courtType={courtState.courtType}
         setCourtType={courtState.setCourtType}
+        gameMode={courtState.gameMode}
+        setGameMode={courtState.setGameMode}
         showShotsPlayer1={courtState.showShotsPlayer1}
         setShowShotsPlayer1={courtState.setShowShotsPlayer1}
         showBisectorPlayer1={courtState.showBisectorPlayer1}
@@ -509,12 +517,15 @@ const TennisCourt: React.FC = () => {
         <CourtCanvas
           player1={courtState.player1}
           player2={courtState.player2}
+          player1bis={courtState.player1bis}
+          player2bis={courtState.player2bis}
           shot1={courtState.shot1}
           shot2={courtState.shot2}
           shot3={courtState.shot3}
           shot4={courtState.shot4}
           courtOrientation={courtState.courtOrientation}
           courtType={courtState.courtType}
+          gameMode={courtState.gameMode}
           player1Handedness={courtState.player1Handedness}
           player1Swing={courtState.player1Swing}
           player2Handedness={courtState.player2Handedness}
@@ -545,12 +556,16 @@ const TennisCourt: React.FC = () => {
               {
                 setPlayer1: courtState.setPlayer1,
                 setPlayer2: courtState.setPlayer2,
+                setPlayer1bis: courtState.setPlayer1bis,
+                setPlayer2bis: courtState.setPlayer2bis,
                 setShot1: courtState.setShot1,
                 setShot2: courtState.setShot2,
                 setShot3: courtState.setShot3,
                 setShot4: courtState.setShot4,
                 setHasMovedPlayer1: courtState.setHasMovedPlayer1,
                 setHasMovedPlayer2: courtState.setHasMovedPlayer2,
+                setHasMovedPlayer1bis: courtState.setHasMovedPlayer1bis,
+                setHasMovedPlayer2bis: courtState.setHasMovedPlayer2bis,
               }
             )
           }
@@ -596,6 +611,12 @@ const TennisCourt: React.FC = () => {
           onStatsToggle={() =>
             courtState.setShowStatsPanel(!courtState.showStatsPanel)
           }
+          gameMode={courtState.gameMode}
+          onGameModeToggle={() => {
+            courtState.setGameMode(
+              courtState.gameMode === "singles" ? "doubles" : "singles"
+            );
+          }}
         />
       </div>
     </div>
