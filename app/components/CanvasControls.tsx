@@ -7,6 +7,7 @@ import {
   faMobile,
   faDesktop,
 } from "@fortawesome/free-solid-svg-icons";
+import { useLanguage } from "../hooks/useLanguage";
 import type { CourtOrientation } from "../types/tennis";
 import styles from "./CanvasControls.module.scss";
 
@@ -23,18 +24,23 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
   showStatsPanel,
   onStatsToggle,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className={styles.canvasControls}>
       {/* Orientation Toggle Button */}
       <button
         className={`${styles.controlButton} ${styles.orientationButton}`}
         onClick={onOrientationToggle}
-        title={`Switch to ${
-          courtOrientation === "portrait" ? "landscape" : "portrait"
-        } mode`}
-        aria-label={`Switch to ${
-          courtOrientation === "portrait" ? "landscape" : "portrait"
-        } mode`}
+        title={
+          courtOrientation === "portrait"
+            ? t("switchToLandscape")
+            : t("switchToPortrait")
+        }
+        aria-label={
+          courtOrientation === "portrait"
+            ? t("switchToLandscape")
+            : t("switchToPortrait")
+        }
       >
         <FontAwesomeIcon
           icon={courtOrientation === "portrait" ? faDesktop : faMobile}
@@ -51,8 +57,8 @@ const CanvasControls: React.FC<CanvasControlsProps> = ({
           showStatsPanel ? styles.active : ""
         }`}
         onClick={onStatsToggle}
-        title={showStatsPanel ? "Hide statistics" : "Show statistics"}
-        aria-label={showStatsPanel ? "Hide statistics" : "Show statistics"}
+        title={showStatsPanel ? t("hideStatistics") : t("showStatistics")}
+        aria-label={showStatsPanel ? t("hideStatistics") : t("showStatistics")}
       >
         <FontAwesomeIcon
           icon={showStatsPanel ? faEyeSlash : faChartLine}

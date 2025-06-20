@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import styles from "./ShotInfoPanel.module.scss";
 import { normalizePointerEvent } from "../utils/device-detection";
+import { useLanguage } from "../hooks/useLanguage";
 
 interface ShotInfoPanelProps {
   lenDownLine: number;
@@ -51,6 +52,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { t } = useLanguage();
 
   const handlePointerDown = (
     e: React.PointerEvent | React.TouchEvent | React.MouseEvent
@@ -162,8 +164,8 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
         ℹ️
       </button>
       <div className={styles.header}>
-        {displayPlayer === "player1" ? "Player 1" : "Player 2"} Shot & Angle
-        Info
+        {displayPlayer === "player1" ? t("player1") : t("player2")}{" "}
+        {t("shotAngleInfo")}
       </div>
       <div className={styles.infoTable}>
         {(() => {
@@ -259,7 +261,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
           // Prepare shot data with opponent distances and time comparisons
           const shots = [
             {
-              label: "Down-the-line shot",
+              label: t("downTheLineShot"),
               value: lenDownLine,
               opponentDistance: distanceToShot1,
               opponentTime: calculatePlayerTime(distanceToShot1),
@@ -270,7 +272,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
               ),
             },
             {
-              label: "Cross-court shot",
+              label: t("crossCourtShot"),
               value: lenCross,
               opponentDistance: distanceToShot2,
               opponentTime: calculatePlayerTime(distanceToShot2),
@@ -281,7 +283,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
               ),
             },
             {
-              label: "Medium shot (bisector)",
+              label: t("mediumShotBisector"),
               value: lenBisector,
               opponentDistance: distanceToBisector,
               opponentTime: calculatePlayerTime(distanceToBisector),
@@ -336,7 +338,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
                       : {}),
                   }}
                 >
-                  Opponent distance: {s.opponentDistance.toFixed(2)} m (
+                  {t("opponentDistance")}: {s.opponentDistance.toFixed(2)} m (
                   {s.opponentTime.toFixed(1)}s){" "}
                   {s.opponentTime > s.ballTime ? ">" : "<"} Ball:{" "}
                   {s.ballTime.toFixed(1)}s
@@ -347,7 +349,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
         })()}
         <div className={styles.row}>
           <div>
-            <span className={styles.label}>Shots length difference:</span>
+            <span className={styles.label}>{t("shotsLengthDifference")}:</span>
             <span className={styles.value}>
               {Math.abs(
                 Math.max(lenDownLine, lenCross, lenBisector) -
@@ -361,8 +363,8 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
           <div>
             <span className={styles.label}>
               {displayPlayer === "player1"
-                ? "Player 1 → Player 2"
-                : "Player 2 → Player 1"}
+                ? `${t("player1")} → ${t("player2")}`
+                : `${t("player2")} → ${t("player1")}`}
               :
             </span>
             <span className={styles.value}>{lenP2.toFixed(2)} m</span>
@@ -370,7 +372,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
         </div>
         <div className={styles.row}>
           <div>
-            <span className={styles.label}>Angle between shots:</span>
+            <span className={styles.label}>{t("angleBetweenShots")}:</span>
             <span className={styles.value}>{angleDeg.toFixed(2)}°</span>
           </div>
         </div>
@@ -380,7 +382,7 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
       {showInfoPopup && (
         <div className={styles.infoPopup}>
           <div className={styles.infoPopupHeader}>
-            <h3>Calculation Details</h3>
+            <h3>{t("calculationDetails")}</h3>
             <button
               className={styles.infoPopupClose}
               onClick={() => setShowInfoPopup(false)}
@@ -390,82 +392,74 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
           </div>
           <div className={styles.infoPopupContent}>
             <div className={styles.infoSection}>
-              <h4>🎾 Shot Analysis</h4>
+              <h4>{t("shotAnalysis")}</h4>
               <p>
-                <strong>Shot Distances:</strong> Calculated from player contact
-                point to shot endpoints
+                <strong>{t("shotDistances")}</strong> {t("shotDistancesDesc")}
               </p>
               <p>
-                <strong>Opponent Distance:</strong> Lateral distance needed to
-                intercept shot trajectory (not endpoint distance)
+                <strong>{t("opponentDistance")}:</strong>{" "}
+                {t("opponentDistanceDesc")}
               </p>
               <p>
-                <strong>Color Coding:</strong> Green = shortest distance, Red =
-                longest distance (only if difference &gt;10%)
+                <strong>{t("colorCoding")}</strong> {t("colorCodingDesc")}
               </p>
             </div>
 
             <div className={styles.infoSection}>
-              <h4>⏱️ Time Calculations</h4>
+              <h4>{t("timeCalculations")}</h4>
               <p>
-                <strong>Player Movement:</strong> Assumes 4 m/s lateral speed
+                <strong>{t("playerMovement")}</strong> {t("playerMovementDesc")}
               </p>
               <p>
-                <strong>Ball Trajectory:</strong> Uses shot-specific speeds and
-                curve factors:
+                <strong>{t("ballTrajectory")}</strong> {t("ballTrajectoryDesc")}
               </p>
               <ul>
-                <li>Flat attack: 110 km/h, 1.05x curve</li>
-                <li>Powerful topspin: 95 km/h, 1.15x curve</li>
-                <li>Rally topspin: 80 km/h, 1.25x curve</li>
-                <li>Defensive slice: 60 km/h, 1.10x curve</li>
+                <li>{t("flatAttack")}: 1.05x curve</li>
+                <li>{t("powerfulTopspin")}: 1.15x curve</li>
+                <li>{t("rallyTopspin")}: 1.25x curve</li>
+                <li>{t("defensiveSlice")}: 1.10x curve</li>
               </ul>
             </div>
 
             <div className={styles.infoSection}>
-              <h4>🚨 Critical Alerts</h4>
+              <h4>{t("criticalAlerts")}</h4>
               <p>
-                <strong>Red + Bold:</strong> Player cannot reach shot in time
-                (movement time &gt; ball time)
+                <strong>{t("redBold")}</strong> {t("redBoldDesc")}
               </p>
               <p>
-                <strong>Comparison:</strong> "&gt;" means player is too slow,
-                "&lt;" means player can reach it
+                <strong>{t("comparison")}</strong> {t("comparisonDesc")}
               </p>
             </div>
 
             <div className={styles.infoSection}>
-              <h4>📐 Physics Model</h4>
+              <h4>{t("physicsModel")}</h4>
               <p>
-                <strong>Curve Factors:</strong> Account for topspin/slice
-                trajectory deviation from straight line
+                <strong>{t("curveFactors")}</strong> {t("curveFactorsDesc")}
               </p>
               <p>
-                <strong>Rally topspin:</strong> +25% distance due to significant
-                curve
+                <strong>{t("rallyTopspin")}:</strong> {t("rallyTopspinDesc")}
               </p>
               <p>
-                <strong>Flat shots:</strong> +5% minimal curve adjustment
+                <strong>{t("flatAttack")}:</strong> {t("flatShotsDesc")}
               </p>
               <p>
-                <strong>Interception Logic:</strong> Calculates perpendicular
-                distance to shot path, not endpoint distance
+                <strong>{t("interceptionLogic")}</strong>{" "}
+                {t("interceptionLogicDesc")}
               </p>
             </div>
 
             <div className={styles.infoSection}>
-              <h4>🎯 Strategic Insights</h4>
+              <h4>{t("strategicInsights")}</h4>
               <p>
-                <strong>Angle Analysis:</strong> Shows tactical angle between
-                shot options
+                <strong>{t("angleAnalysis")}</strong> {t("angleAnalysisDesc")}
               </p>
               <p>
-                <strong>Distance Difference:</strong> Helps identify positioning
-                advantages
+                <strong>{t("distanceDifference")}</strong>{" "}
+                {t("distanceDifferenceDesc")}
               </p>
               <p>
-                <strong>Player Switching:</strong> Hover/drag players to see
-                their perspective
+                <strong>{t("playerSwitching")}</strong>{" "}
+                {t("playerSwitchingDesc")}
               </p>
             </div>
           </div>

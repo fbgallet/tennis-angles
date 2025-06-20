@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import CourtControls from "./CourtControls";
+import { useLanguage } from "../hooks/useLanguage";
 import type {
   CourtOrientation,
   CourtType,
@@ -47,6 +48,7 @@ interface BurgerMenuProps {
 
 const BurgerMenu: React.FC<BurgerMenuProps> = (props) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { t } = useLanguage();
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -82,7 +84,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = (props) => {
       {/* Menu Panel */}
       <div className={`${styles.menuPanel} ${isOpen ? styles.open : ""}`}>
         <div className={styles.menuHeader}>
-          <h3 className={styles.menuTitle}>Controls</h3>
+          <h3 className={styles.menuTitle}>{t("controls")}</h3>
           <button
             className={styles.closeButton}
             onClick={closeMenu}
@@ -134,7 +136,7 @@ const BurgerMenu: React.FC<BurgerMenuProps> = (props) => {
               onClick={() => props.setShowStatsPanel(!props.showStatsPanel)}
               type="button"
             >
-              {props.showStatsPanel ? "Hide stats" : "Show stats"}
+              {props.showStatsPanel ? t("hideStats") : t("showStats")}
             </button>
           </div>
         </div>

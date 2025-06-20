@@ -1,4 +1,5 @@
 import React from "react";
+import { useLanguage } from "../hooks/useLanguage";
 import type {
   CourtOrientation,
   CourtType,
@@ -75,13 +76,14 @@ const CourtControls: React.FC<CourtControlsProps> = ({
   onCheckPosition,
   onShowSolution,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className={tcStyles.topControls}>
       <div className={tcStyles.controlSection}>
-        <h4 className={tcStyles.controlSectionTitle}>Court Settings</h4>
+        <h4 className={tcStyles.controlSectionTitle}>{t("courtSettings")}</h4>
         <div className={tcStyles.compactRow}>
           <label className={tcStyles.selectLabel}>
-            <span className={tcStyles.selectText}>Orientation:</span>
+            <span className={tcStyles.selectText}>{t("orientation")}</span>
             <select
               value={courtOrientation}
               onChange={(e) =>
@@ -89,48 +91,46 @@ const CourtControls: React.FC<CourtControlsProps> = ({
               }
               className={tcStyles.smallSelect}
             >
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
+              <option value="portrait">{t("portrait")}</option>
+              <option value="landscape">{t("landscape")}</option>
             </select>
           </label>
         </div>
         <div className={tcStyles.compactRow}>
           <label className={tcStyles.selectLabel}>
-            <span className={tcStyles.selectText}>Court type:</span>
+            <span className={tcStyles.selectText}>{t("courtType")}</span>
             <select
               value={courtType}
               onChange={(e) => setCourtType(e.target.value as CourtType)}
               className={tcStyles.smallSelect}
             >
-              <option value="clay">Clay</option>
-              <option value="hard">Hard</option>
-              <option value="grass">Grass</option>
+              <option value="clay">{t("clay")}</option>
+              <option value="hard">{t("hard")}</option>
+              <option value="grass">{t("grass")}</option>
             </select>
           </label>
         </div>
         <div className={tcStyles.compactRow}>
           <label className={tcStyles.selectLabel}>
-            <span className={tcStyles.selectText}>Shot type:</span>
+            <span className={tcStyles.selectText}>{t("shotType")}</span>
             <select
               value={shotType}
               onChange={(e) => setShotType(e.target.value as ShotType)}
               className={tcStyles.smallSelect}
             >
-              <option value="flat_attack">
-                Flat attack forehand (110 km/h)
-              </option>
-              <option value="powerful_topspin">
-                Powerful topspin forehand (95 km/h)
-              </option>
-              <option value="rally_topspin">Rally topspin (80 km/h)</option>
-              <option value="defensive_slice">Defensive slice (60 km/h)</option>
+              <option value="flat_attack">{t("flatAttack")}</option>
+              <option value="powerful_topspin">{t("powerfulTopspin")}</option>
+              <option value="rally_topspin">{t("rallyTopspin")}</option>
+              <option value="defensive_slice">{t("defensiveSlice")}</option>
             </select>
           </label>
         </div>
       </div>
       <div className={tcStyles.controlsPanel}>
         <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>Player 1 Display</h4>
+          <h4 className={tcStyles.controlSectionTitle}>
+            {t("player1Display")}
+          </h4>
           <div className={tcStyles.checkboxGroup}>
             <label className={tcStyles.checkboxLabel}>
               <input
@@ -139,7 +139,7 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 onChange={(e) => setShowShotsPlayer1(e.target.checked)}
                 className={tcStyles.checkbox}
               />
-              <span className={tcStyles.checkboxText}>P1 shots</span>
+              <span className={tcStyles.checkboxText}>{t("p1Shots")}</span>
             </label>
             <label className={tcStyles.checkboxLabel}>
               <input
@@ -148,13 +148,15 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 onChange={(e) => setShowBisectorPlayer1(e.target.checked)}
                 className={tcStyles.checkbox}
               />
-              <span className={tcStyles.checkboxText}>P1 bisector</span>
+              <span className={tcStyles.checkboxText}>{t("p1Bisector")}</span>
             </label>
           </div>
         </div>
 
         <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>Player 2 Display</h4>
+          <h4 className={tcStyles.controlSectionTitle}>
+            {t("player2Display")}
+          </h4>
           <div className={tcStyles.checkboxGroup}>
             <label className={tcStyles.checkboxLabel}>
               <input
@@ -163,7 +165,7 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 onChange={(e) => setShowShotsPlayer2(e.target.checked)}
                 className={tcStyles.checkbox}
               />
-              <span className={tcStyles.checkboxText}>P2 shots</span>
+              <span className={tcStyles.checkboxText}>{t("p2Shots")}</span>
             </label>
             <label className={tcStyles.checkboxLabel}>
               <input
@@ -172,13 +174,13 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 onChange={(e) => setShowBisectorPlayer2(e.target.checked)}
                 className={tcStyles.checkbox}
               />
-              <span className={tcStyles.checkboxText}>P2 bisector</span>
+              <span className={tcStyles.checkboxText}>{t("p2Bisector")}</span>
             </label>
           </div>
         </div>
 
         <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>Other</h4>
+          <h4 className={tcStyles.controlSectionTitle}>{t("other")}</h4>
           <div className={tcStyles.checkboxGroup}>
             <label className={tcStyles.checkboxLabel}>
               <input
@@ -187,16 +189,20 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 onChange={(e) => setShowOptimal(e.target.checked)}
                 className={tcStyles.checkbox}
               />
-              <span className={tcStyles.checkboxText}>Optimal positions</span>
+              <span className={tcStyles.checkboxText}>
+                {t("optimalPositions")}
+              </span>
             </label>
           </div>
         </div>
 
         <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>Player Settings</h4>
+          <h4 className={tcStyles.controlSectionTitle}>
+            {t("playerSettings")}
+          </h4>
           <div className={tcStyles.playerControls}>
             <label className={tcStyles.selectLabel}>
-              <span className={tcStyles.selectText}>P1 Hand:</span>
+              <span className={tcStyles.selectText}>{t("p1Hand")}</span>
               <select
                 value={player1Handedness}
                 onChange={(e) => {
@@ -205,12 +211,12 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 }}
                 className={tcStyles.smallSelect}
               >
-                <option value="right">Right</option>
-                <option value="left">Left</option>
+                <option value="right">{t("right")}</option>
+                <option value="left">{t("left")}</option>
               </select>
             </label>
             <label className={tcStyles.selectLabel}>
-              <span className={tcStyles.selectText}>P1 Swing:</span>
+              <span className={tcStyles.selectText}>{t("p1Swing")}</span>
               <select
                 value={player1Swing}
                 onChange={(e) => {
@@ -219,13 +225,13 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 }}
                 className={tcStyles.smallSelect}
               >
-                <option value="auto">Auto</option>
-                <option value="forehand">Forehand</option>
-                <option value="backhand">Backhand</option>
+                <option value="auto">{t("auto")}</option>
+                <option value="forehand">{t("forehand")}</option>
+                <option value="backhand">{t("backhand")}</option>
               </select>
             </label>
             <label className={tcStyles.selectLabel}>
-              <span className={tcStyles.selectText}>P2 Hand:</span>
+              <span className={tcStyles.selectText}>{t("p2Hand")}</span>
               <select
                 value={player2Handedness}
                 onChange={(e) => {
@@ -234,12 +240,12 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 }}
                 className={tcStyles.smallSelect}
               >
-                <option value="right">Right</option>
-                <option value="left">Left</option>
+                <option value="right">{t("right")}</option>
+                <option value="left">{t("left")}</option>
               </select>
             </label>
             <label className={tcStyles.selectLabel}>
-              <span className={tcStyles.selectText}>P2 Swing:</span>
+              <span className={tcStyles.selectText}>{t("p2Swing")}</span>
               <select
                 value={player2Swing}
                 onChange={(e) => {
@@ -248,22 +254,22 @@ const CourtControls: React.FC<CourtControlsProps> = ({
                 }}
                 className={tcStyles.smallSelect}
               >
-                <option value="auto">Auto</option>
-                <option value="forehand">Forehand</option>
-                <option value="backhand">Backhand</option>
+                <option value="auto">{t("auto")}</option>
+                <option value="forehand">{t("forehand")}</option>
+                <option value="backhand">{t("backhand")}</option>
               </select>
             </label>
           </div>
         </div>
 
         <div className={tcStyles.controlSection}>
-          <h4 className={tcStyles.controlSectionTitle}>Game</h4>
+          <h4 className={tcStyles.controlSectionTitle}>{t("game")}</h4>
           <div className={tcStyles.gameControls}>
             <button className={tcStyles.gameButton} onClick={onCheckPosition}>
-              🎯 Check Position
+              {t("checkPosition")}
             </button>
             <button className={tcStyles.gameButton} onClick={onShowSolution}>
-              💡 Show Solution
+              {t("showSolution")}
             </button>
           </div>
           {feedback && <div className={tcStyles.feedback}>{feedback}</div>}

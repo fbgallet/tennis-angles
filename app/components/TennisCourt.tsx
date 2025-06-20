@@ -6,6 +6,7 @@ import CanvasControls from "./CanvasControls";
 import { useCourtState } from "../hooks/useCourtState";
 import { useTouchOptimizedDragHandling } from "../hooks/useTouchOptimizedDragHandling";
 import { useCanvasSize } from "../hooks/useCanvasSize";
+import { useLanguage } from "../hooks/useLanguage";
 import {
   resolvePlayerSwing,
   getContactPoint,
@@ -29,6 +30,7 @@ const TennisCourt: React.FC = () => {
   const { canvasSize, containerRef } = useCanvasSize(
     courtState.courtOrientation
   );
+  const { t } = useLanguage();
 
   // Shot type state
   const [shotType, setShotType] = React.useState<ShotType>("rally_topspin");
@@ -276,9 +278,9 @@ const TennisCourt: React.FC = () => {
       );
 
       if (dist < 0.5) {
-        courtState.setFeedback("You win! 🎾");
+        courtState.setFeedback(t("youWin"));
       } else {
-        courtState.setFeedback("You lose, try again or ask for the solution.");
+        courtState.setFeedback(t("youLose"));
       }
     }
   };
