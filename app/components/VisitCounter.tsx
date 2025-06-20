@@ -60,14 +60,14 @@ export default function VisitCounter() {
     incrementVisit();
   }, []);
 
-  if (isLoading || visitCount === null) {
-    return null; // Don't render until we have the count
-  }
-
   return (
     <div className={styles.counter}>
       <span className={styles.text}>
-        {visitCount.toLocaleString()} visit{visitCount !== 1 ? "s" : ""}
+        {isLoading || visitCount === null
+          ? "Loading visits..."
+          : `${visitCount.toLocaleString()} visit${
+              visitCount !== 1 ? "s" : ""
+            }`}
       </span>
     </div>
   );
