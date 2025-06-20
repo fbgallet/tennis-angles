@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import styles from "./ShotInfoPanel.module.scss";
+import { normalizePointerEvent } from "../utils/device-detection";
 
 interface ShotInfoPanelProps {
   lenDownLine: number;
@@ -51,32 +52,46 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handlePointerDown = (
+    e: React.PointerEvent | React.TouchEvent | React.MouseEvent
+  ) => {
     if (
       e.target === e.currentTarget ||
       (e.target as HTMLElement).classList.contains(styles.header)
     ) {
+      // Prevent default for touch events to avoid scrolling
+      if ("touches" in e) {
+        e.preventDefault();
+      }
+
       setIsDragging(true);
       const rect = panelRef.current?.getBoundingClientRect();
       if (rect) {
+        const normalized = normalizePointerEvent(e);
         setDragOffset({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          x: normalized.clientX - rect.left,
+          y: normalized.clientY - rect.top,
         });
       }
       e.preventDefault();
     }
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handlePointerMove = (e: PointerEvent | TouchEvent | MouseEvent) => {
     if (isDragging && panelRef.current) {
+      // Prevent default for touch events to avoid scrolling
+      if ("touches" in e) {
+        e.preventDefault();
+      }
+
       const container = panelRef.current.parentElement;
       if (container) {
         const containerRect = container.getBoundingClientRect();
         const panelRect = panelRef.current.getBoundingClientRect();
 
-        let newX = e.clientX - containerRect.left - dragOffset.x;
-        let newY = e.clientY - containerRect.top - dragOffset.y;
+        const normalized = normalizePointerEvent(e as any);
+        let newX = normalized.clientX - containerRect.left - dragOffset.x;
+        let newY = normalized.clientY - containerRect.top - dragOffset.y;
 
         // Keep panel within container bounds
         newX = Math.max(
@@ -93,17 +108,27 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = () => {
     setIsDragging(false);
   };
 
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      // Add all event types for maximum compatibility
+      document.addEventListener("pointermove", handlePointerMove);
+      document.addEventListener("pointerup", handlePointerUp);
+      document.addEventListener("touchmove", handlePointerMove);
+      document.addEventListener("touchend", handlePointerUp);
+      document.addEventListener("mousemove", handlePointerMove);
+      document.addEventListener("mouseup", handlePointerUp);
+
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("pointermove", handlePointerMove);
+        document.removeEventListener("pointerup", handlePointerUp);
+        document.removeEventListener("touchmove", handlePointerMove);
+        document.removeEventListener("touchend", handlePointerUp);
+        document.removeEventListener("mousemove", handlePointerMove);
+        document.removeEventListener("mouseup", handlePointerUp);
       };
     }
   }, [isDragging, dragOffset]);
@@ -119,7 +144,9 @@ const ShotInfoPanel: React.FC<ShotInfoPanelProps> = ({
         top: position.y,
         cursor: isDragging ? "grabbing" : "grab",
       }}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
+      onTouchStart={handlePointerDown}
+      onMouseDown={handlePointerDown}
     >
       <button className={styles.closeBtn} onClick={onClose}>
         ✕

@@ -142,7 +142,7 @@
     top: 0;
     left: -100%;
     width: 100%;
-    max-width: 280px;
+    max-width: 300px;
     height: auto;
     max-height: 100vh;
   }
@@ -173,6 +173,6 @@
 /* Responsive adjustments for smaller screens */
 @media (max-width: 480px) {
   .menuPanel {
-    max-width: 280px;
+    max-width: 300px;
   }
 }

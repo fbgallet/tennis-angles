@@ -4,6 +4,11 @@ export const metadata = {
   title: "Tennis Angle Theory",
   description:
     "Interactive tennis court positioning visualizer based on René Cochet's angle theory",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/tennis-ball.png",
+    apple: "/tennis-ball.png",
+  },
 };
 
 export default function RootLayout({

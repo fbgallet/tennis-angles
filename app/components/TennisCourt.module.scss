@@ -182,7 +182,7 @@
 .pageRoot {
   display: flex;
   flex-direction: column;
-  height: 92vh;
+  height: 88vh;
   width: 100vw;
   min-height: 0;
   min-width: 0;
@@ -274,7 +274,7 @@
   height: auto;
   display: block;
   object-fit: contain;
-  touch-action: none; /* Prevent default touch behaviors like scrolling */
+  touch-action: pinch-zoom; /* Allow pinch-to-zoom but prevent pan/scroll */
   user-select: none; /* Prevent text selection */
   -webkit-user-select: none;
   -moz-user-select: none;

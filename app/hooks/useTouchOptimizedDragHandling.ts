@@ -84,9 +84,26 @@ export function useTouchOptimizedDragHandling() {
     ) => {
       if (!canvasRef.current || !anchorsRef.current) return;
 
-      // Prevent default to avoid conflicts, but only for touch events
-      if ("touches" in e) {
-        e.preventDefault();
+      // Ignore multi-touch events (pinch-to-zoom)
+      if ("touches" in e && e.touches.length > 1) {
+        return { isDoubleTap: false, target: null };
+      }
+
+      // Prevent default to avoid conflicts, but only for single touch events
+      if ("touches" in e && e.touches.length === 1) {
+        // Only prevent default if we're touching a draggable element
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const normalized = normalizePointerEvent(e);
+        const px = (normalized.clientX - rect.left) * scaleX;
+        const py = (normalized.clientY - rect.top) * scaleY;
+        const hit = hitTestHandles(px, py);
+
+        if (hit) {
+          e.preventDefault(); // Only prevent default if touching a draggable element
+        }
       }
 
       const canvas = canvasRef.current;
