@@ -28,6 +28,14 @@ export default function VisitCounter() {
             setVisitCount(data.visits);
             // Mark this session as visited
             sessionStorage.setItem(sessionKey, "true");
+          } else {
+            console.warn(
+              "Failed to increment visit count, status:",
+              response.status
+            );
+            // Fallback: still mark session and show 0
+            sessionStorage.setItem(sessionKey, "true");
+            setVisitCount(0);
           }
         } else {
           // Just get current count without incrementing
@@ -35,6 +43,9 @@ export default function VisitCounter() {
           if (response.ok) {
             const data = await response.json();
             setVisitCount(data.visits);
+          } else {
+            console.warn("Failed to get visit count, status:", response.status);
+            setVisitCount(0);
           }
         }
       } catch (error) {
